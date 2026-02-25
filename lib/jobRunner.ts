@@ -25,20 +25,21 @@ const UPLOADS_DIR = path.join(DATA_ROOT, "uploads");
 const OUTPUTS_DIR = path.join(DATA_ROOT, "outputs");
 
 async function findComfyOutputPath(
+  comfyBaseUrl: string,
   promptId: string,
   filename: string,
   subfolder: string | undefined,
   imageType: string | undefined,
 ): Promise<string> {
   if (subfolder && subfolder.length > 0) {
-    return `${COMFYUI_BASE_URL}/view?filename=${encodeURIComponent(
+    return `${comfyBaseUrl}/view?filename=${encodeURIComponent(
       filename,
     )}&subfolder=${encodeURIComponent(subfolder)}&type=${encodeURIComponent(
       imageType ?? "output",
     )}`;
   }
 
-  const response = await fetch(`${COMFYUI_BASE_URL}/history/${promptId}`);
+  const response = await fetch(`${comfyBaseUrl}/history/${promptId}`);
   if (!response.ok) {
     throw new Error("Failed to locate ComfyUI output.");
   }
@@ -59,7 +60,7 @@ async function findComfyOutputPath(
 
   const subfolderValue = match.subfolder ?? "";
 
-  return `${COMFYUI_BASE_URL}/view?filename=${encodeURIComponent(
+  return `${comfyBaseUrl}/view?filename=${encodeURIComponent(
     filename,
   )}&subfolder=${encodeURIComponent(subfolderValue)}&type=${encodeURIComponent(
     imageType ?? "output",
@@ -67,6 +68,7 @@ async function findComfyOutputPath(
 }
 
 async function copyOutputToLocal(
+  comfyBaseUrl: string,
   promptId: string,
   filename: string,
   subfolder: string | undefined,
@@ -79,6 +81,7 @@ async function copyOutputToLocal(
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const url = await findComfyOutputPath(
+        comfyBaseUrl,
         promptId,
         filename,
         subfolder,
@@ -106,6 +109,7 @@ export type CreateJobInput = {
   params: InpaintParams;
   workflows: WorkflowDefinition[];
   mappings: WorkflowMapping[];
+  comfyBaseUrl?: string;
 };
 
 export async function createJob({
@@ -114,6 +118,7 @@ export async function createJob({
   params,
   workflows,
   mappings,
+  comfyBaseUrl,
 }: CreateJobInput): Promise<JobRecord> {
   await ensureJobStore();
 
@@ -139,6 +144,7 @@ export async function createJob({
     id: jobId,
     createdAt: new Date().toISOString(),
     status: "queued",
+    comfyBaseUrl: comfyBaseUrl ?? COMFYUI_BASE_URL,
     params,
     workflows: workflows.map((workflow) => workflow.name),
     promptIds: {},
@@ -176,6 +182,8 @@ async function runJob(
   await updateJobStatus(job, "running");
   await fs.mkdir(OUTPUTS_DIR, { recursive: true });
 
+  const comfyBaseUrl = job.comfyBaseUrl ?? COMFYUI_BASE_URL;
+
   const outputs: JobOutput[] = [];
   const promptIds: Record<string, string> = {};
 
@@ -191,7 +199,7 @@ async function runJob(
       maskPath,
       job.params,
     );
-    const { promptId } = await submitPatchedWorkflow(patchedWorkflow);
+    const { promptId } = await submitPatchedWorkflow(patchedWorkflow, comfyBaseUrl);
     promptIds[workflow.name] = promptId;
     const patchedWorkflows = {
       ...(job.patchedWorkflows ?? {}),
@@ -202,7 +210,7 @@ async function runJob(
     let completed = false;
     while (!completed) {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      const pollOutputs = await pollWorkflow(promptId);
+      const pollOutputs = await pollWorkflow(promptId, comfyBaseUrl);
       if (pollOutputs.length > 0) {
         for (const output of pollOutputs) {
           const filename = output.filename ?? path.basename(output.filePath);
@@ -211,6 +219,7 @@ async function runJob(
           const localPath = path.join(localDir, filename);
           await fs.mkdir(localDir, { recursive: true });
           await copyOutputToLocal(
+            comfyBaseUrl,
             promptId,
             filename,
             output.subfolder,

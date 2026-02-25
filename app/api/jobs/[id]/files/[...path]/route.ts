@@ -31,7 +31,8 @@ export async function GET(
   }
 
   if (match.source === "comfyui" && match.filename) {
-    const url = new URL(`${COMFYUI_BASE_URL}/view`);
+    const comfyBaseUrl = job.comfyBaseUrl ?? COMFYUI_BASE_URL;
+    const url = new URL(`${comfyBaseUrl}/view`);
     url.searchParams.set("filename", match.filename);
     if (match.subfolder) {
       url.searchParams.set("subfolder", match.subfolder);

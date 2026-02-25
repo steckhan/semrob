@@ -13,6 +13,8 @@ type JobOutput = {
 type JobRecord = {
   id: string;
   status: string;
+  comfyBaseUrl?: string;
+  error?: string;
   outputs: JobOutput[];
 };
 
@@ -37,19 +39,22 @@ type MappingIssue = {
   message: string;
 };
 
-  const DEFAULT_PARAMS = {
-    seed: 42,
-    steps: 28,
-    cfgScale: 8,
-    sampler: "euler",
-    scheduler: "normal",
-    denoise: 1,
-    maskStrength: 1,
-    variationCount: 4,
-    useWorkflowDefaults: false,
-    positivePrompt: "wristwatch, metal casing, worn look",
-    negativePrompt: "",
-  };
+const COMFYUI_LOCAL_STORAGE_KEY = "comfyBaseUrl";
+const DEFAULT_COMFYUI_BASE_URL = "http://172.26.224.1:8188";
+
+const DEFAULT_PARAMS = {
+  seed: 42,
+  steps: 28,
+  cfgScale: 8,
+  sampler: "euler",
+  scheduler: "normal",
+  denoise: 1,
+  maskStrength: 1,
+  variationCount: 4,
+  useWorkflowDefaults: false,
+  positivePrompt: "wristwatch, metal casing, worn look",
+  negativePrompt: "",
+};
 
 
 export default function HomePage() {
@@ -60,6 +65,24 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [workflowMappings, setWorkflowMappings] = useState<WorkflowMapping[]>([]);
+  const [comfyBaseUrl, setComfyBaseUrl] = useState(DEFAULT_COMFYUI_BASE_URL);
+  const [isTestingComfy, setIsTestingComfy] = useState(false);
+  const [comfyTestMessage, setComfyTestMessage] = useState<string | null>(null);
+  const [comfyTestError, setComfyTestError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(COMFYUI_LOCAL_STORAGE_KEY);
+    if (!stored) {
+      return;
+    }
+
+    const trimmed = stored.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setComfyBaseUrl(trimmed);
+  }, []);
 
   useEffect(() => {
     if (!imageFile) {
@@ -107,6 +130,7 @@ export default function HomePage() {
     Object.entries(params).forEach(([key, value]) => {
       formData.append(key, String(value));
     });
+    formData.append("comfyBaseUrl", comfyBaseUrl.trim());
 
     const response = await fetch("/api/jobs", {
       method: "POST",
@@ -116,13 +140,47 @@ export default function HomePage() {
     if (!response.ok) {
       const payload = (await response.json()) as { error?: string };
       console.error(payload.error ?? "Failed to submit job.");
+      setComfyTestError(payload.error ?? "Failed to submit job.");
       setIsSubmitting(false);
       return;
     }
 
     const payload = (await response.json()) as JobRecord;
     setJob(payload);
+    setComfyTestError(null);
+    setComfyTestMessage("Job submitted successfully.");
+    window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
     setIsSubmitting(false);
+  };
+
+  const testComfyConnection = async () => {
+    setIsTestingComfy(true);
+    setComfyTestMessage(null);
+    setComfyTestError(null);
+
+    const response = await fetch("/api/comfyui/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comfyBaseUrl: comfyBaseUrl.trim() }),
+    });
+
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      comfyBaseUrl?: string;
+      error?: string;
+    };
+
+    if (!response.ok || !payload.ok) {
+      setComfyTestError(payload.error ?? "Failed to connect to ComfyUI.");
+      setIsTestingComfy(false);
+      return;
+    }
+
+    const resolvedUrl = payload.comfyBaseUrl ?? comfyBaseUrl.trim();
+    setComfyBaseUrl(resolvedUrl);
+    window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, resolvedUrl);
+    setComfyTestMessage(`Connected to ${resolvedUrl}`);
+    setIsTestingComfy(false);
   };
 
   useEffect(() => {
@@ -244,6 +302,35 @@ export default function HomePage() {
       <div>
         <h1>ComfyUI Inpaint Studio</h1>
         <p>Upload an image, paint your mask, and run all workflows in parallel.</p>
+      </div>
+
+      <div className="panel">
+        <h2>ComfyUI Connection</h2>
+        <div className="row">
+          <div style={{ flex: 1 }}>
+            <label htmlFor="comfy-url">ComfyUI Base URL</label>
+            <input
+              id="comfy-url"
+              className="input"
+              type="url"
+              value={comfyBaseUrl}
+              onChange={(event) => setComfyBaseUrl(event.target.value)}
+              placeholder="http://127.0.0.1:8188"
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button
+              type="button"
+              className="button"
+              onClick={testComfyConnection}
+              disabled={isTestingComfy}
+            >
+              {isTestingComfy ? "Testing..." : "Test Connection"}
+            </button>
+          </div>
+        </div>
+        {comfyTestMessage && <p className="small">{comfyTestMessage}</p>}
+        {comfyTestError && <p className="small">{comfyTestError}</p>}
       </div>
 
       <div className="panel">
@@ -568,6 +655,9 @@ export default function HomePage() {
             <span className="status-pill">Status: {job.status}</span>
             <span className="small">Job ID: {job.id}</span>
           </div>
+          {job.status === "failed" && job.error && (
+            <p className="small">{job.error}</p>
+          )}
 
           {job.status === "completed" && (
             <div className="gallery">

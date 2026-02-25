@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { COMFYUI_BASE_URL } from "@/lib/constants";
 import { createJob } from "@/lib/jobRunner";
 import type { InpaintParams } from "@/lib/types";
 import { loadWorkflowBundle } from "@/lib/workflowLoader";
@@ -18,14 +19,54 @@ const DEFAULT_PARAMS: InpaintParams = {
   negativePrompt: "",
 };
 
+function parseComfyBaseUrl(rawValue: FormDataEntryValue | null): string | null {
+  if (rawValue === null) {
+    return null;
+  }
+
+  const value = String(rawValue).trim();
+  if (!value) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return null;
+  }
+
+  return value.replace(/\/+$/, "");
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const imageFile = formData.get("image") as File | null;
   const maskFile = formData.get("mask") as File | null;
+  const rawComfyBaseUrl = formData.get("comfyBaseUrl");
+  const comfyBaseUrl = parseComfyBaseUrl(rawComfyBaseUrl);
 
   if (!imageFile || !maskFile) {
     return NextResponse.json(
       { error: "Image and mask are required." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    rawComfyBaseUrl !== null &&
+    String(rawComfyBaseUrl).trim().length > 0 &&
+    comfyBaseUrl === null
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Invalid ComfyUI URL. Use a full http(s) URL like http://127.0.0.1:8188",
+      },
       { status: 400 },
     );
   }
@@ -69,6 +110,7 @@ export async function POST(request: Request) {
   const job = await createJob({
     imageBuffer: Buffer.from(imageBuffer),
     maskBuffer: Buffer.from(maskBuffer),
+    comfyBaseUrl: comfyBaseUrl ?? COMFYUI_BASE_URL,
     params,
     workflows,
     mappings,

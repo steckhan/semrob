@@ -1,6 +1,6 @@
 import path from "path";
 
-import { COMFYUI_BASE_URL, DATA_ROOT } from "./constants";
+import { DATA_ROOT } from "./constants";
 import type { InpaintParams, JobOutput, WorkflowPatchTargets } from "./types";
 import { patchWorkflow } from "./workflowPatcher";
 
@@ -50,10 +50,11 @@ export function buildPatchedWorkflow(
 
 export async function submitPatchedWorkflow(
   patched: Record<string, unknown>,
+  comfyBaseUrl: string,
 ): Promise<ComfySubmitResult> {
   let response: Response;
   try {
-    response = await fetch(`${COMFYUI_BASE_URL}/prompt`, {
+    response = await fetch(`${comfyBaseUrl}/prompt`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -62,7 +63,7 @@ export async function submitPatchedWorkflow(
     });
   } catch (error) {
     throw new Error(
-      `Could not reach ComfyUI at ${COMFYUI_BASE_URL}. Check COMFYUI_BASE_URL and that ComfyUI is running.`,
+      `Could not reach ComfyUI at ${comfyBaseUrl}. Check the URL and that ComfyUI is running.`,
       { cause: error },
     );
   }
@@ -78,13 +79,16 @@ export async function submitPatchedWorkflow(
   return { promptId: payload.prompt_id };
 }
 
-export async function pollWorkflow(promptId: string): Promise<JobOutput[]> {
+export async function pollWorkflow(
+  promptId: string,
+  comfyBaseUrl: string,
+): Promise<JobOutput[]> {
   let response: Response;
   try {
-    response = await fetch(`${COMFYUI_BASE_URL}/history/${promptId}`);
+    response = await fetch(`${comfyBaseUrl}/history/${promptId}`);
   } catch (error) {
     throw new Error(
-      `Could not reach ComfyUI at ${COMFYUI_BASE_URL} while polling history.`,
+      `Could not reach ComfyUI at ${comfyBaseUrl} while polling history.`,
       { cause: error },
     );
   }
@@ -127,8 +131,9 @@ export async function pollWorkflow(promptId: string): Promise<JobOutput[]> {
 export async function fetchImageBuffer(
   imagePath: string,
   subfolder: string,
+  comfyBaseUrl: string,
 ): Promise<ArrayBuffer> {
-  const url = new URL(`${COMFYUI_BASE_URL}/view`);
+  const url = new URL(`${comfyBaseUrl}/view`);
   url.searchParams.set("filename", imagePath);
   url.searchParams.set("subfolder", subfolder);
   url.searchParams.set("type", "output");
@@ -138,7 +143,7 @@ export async function fetchImageBuffer(
     response = await fetch(url.toString());
   } catch (error) {
     throw new Error(
-      `Could not reach ComfyUI at ${COMFYUI_BASE_URL} while fetching image output.`,
+      `Could not reach ComfyUI at ${comfyBaseUrl} while fetching image output.`,
       { cause: error },
     );
   }
