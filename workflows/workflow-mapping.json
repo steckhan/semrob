@@ -1,0 +1,14 @@
+[
+  {
+    "workflowName": "flux_fill_inpaint",
+    "targets": {
+      "imageNodeId": "17",
+      "imageInputKey": "image",
+      "maskNodeId": "38",
+      "maskInputKey": "mask",
+      "paramsNodeId": "3",
+      "positivePromptNodeId": "23",
+      "negativePromptNodeId": "7"
+    }
+  }
+]
