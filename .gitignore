@@ -1,0 +1,15 @@
+# Python
+IPA_repo/.venv/
+__pycache__/
+*.pyc
+
+# Node / Next.js
+inpaintntest/node_modules/
+inpaintntest/.next/
+
+# Large binary / generated files
+IPA_repo/scripts/slideshow.mp4
+
+# Windows metadata
+*.Zone.Identifier
+Thumbs.db
