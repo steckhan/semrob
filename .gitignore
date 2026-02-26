@@ -4,12 +4,23 @@ __pycache__/
 *.pyc
 
 # Node / Next.js
+node_modules/
 inpaintntest/node_modules/
+.next/
 inpaintntest/.next/
 
 # Large binary / generated files
 IPA_repo/scripts/slideshow.mp4
 
+# Environment
+.env
+.env.local
+npm-debug.log*
+
+# Data outputs
+data/
+
 # Windows metadata
 *.Zone.Identifier
+*:Zone.Identifier
 Thumbs.db
