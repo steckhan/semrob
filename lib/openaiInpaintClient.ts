@@ -48,6 +48,26 @@ async function convertMaskForOpenAI(
     .toBuffer();
 }
 
+/**
+ * Picks the closest supported output size for the images/edits endpoint.
+ *
+ * Supported presets and their aspect ratios:
+ *   1024×1024  → 1.00  (square)
+ *   1536×1024  → 1.50  (landscape)
+ *   1024×1536  → 0.667 (portrait)
+ *
+ * Decision boundaries are the midpoints between adjacent ratios:
+ *   > 1.25  → landscape
+ *   < 0.833 → portrait
+ *   else    → square
+ */
+function selectOutputSize(width: number, height: number): "1024x1024" | "1536x1024" | "1024x1536" {
+  const ratio = width / height;
+  if (ratio >= 1.25) return "1536x1024";
+  if (ratio <= 0.833) return "1024x1536";
+  return "1024x1024";
+}
+
 export async function runOpenAIInpainting({
   imageBuffer,
   maskBuffer,
@@ -59,6 +79,8 @@ export async function runOpenAIInpainting({
   const meta = await sharp(imageBuffer).metadata();
   const { width, height } = meta;
   if (!width || !height) throw new Error("Could not read image dimensions.");
+
+  const size = selectOutputSize(width, height);
 
   const [pngImage, convertedMask] = await Promise.all([
     sharp(imageBuffer).png().toBuffer(),
@@ -73,6 +95,7 @@ export async function runOpenAIInpainting({
     mask: await toFile(convertedMask, "mask.png", { type: "image/png" }),
     prompt,
     n: Math.min(n, 10),
+    size,
   } as Parameters<typeof client.images.edit>[0]);
 
   const images = response.data ?? [];
