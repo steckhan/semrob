@@ -56,6 +56,13 @@ export async function POST(request: Request) {
   const rawOpenaiApiKey = String(formData.get("openaiApiKey") ?? "").trim();
   const openaiApiKey = rawOpenaiApiKey || OPENAI_API_KEY;
 
+  const VALID_OPENAI_MODELS = ["gpt-image-1", "gpt-image-1.5"] as const;
+  type OpenAIModel = (typeof VALID_OPENAI_MODELS)[number];
+  const rawOpenaiModel = String(formData.get("openaiModel") ?? "gpt-image-1").trim();
+  const openaiModel: OpenAIModel = (VALID_OPENAI_MODELS as readonly string[]).includes(rawOpenaiModel)
+    ? (rawOpenaiModel as OpenAIModel)
+    : "gpt-image-1";
+
   if (!imageFile || !maskFile) {
     return NextResponse.json(
       { error: "Image and mask are required." },
@@ -133,6 +140,7 @@ export async function POST(request: Request) {
     mappings: inpaintMode === "local" ? mappings : [],
     inpaintMode: inpaintMode as "local" | "api",
     openaiApiKey: inpaintMode === "api" ? openaiApiKey : undefined,
+    openaiModel: inpaintMode === "api" ? openaiModel : undefined,
   });
 
   return NextResponse.json(job);
