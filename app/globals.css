@@ -508,11 +508,153 @@ input[type="range"]:disabled {
   gap: 8px;
 }
 
-.gallery img {
+.gallery-item {
+  position: relative;
+}
+
+.gallery-item img {
   width: 100%;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   display: block;
+}
+
+.gallery-compare-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  padding: 3px 7px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.gallery-item:hover .gallery-compare-btn {
+  opacity: 1;
+}
+
+/* ── Image Compare Modal ── */
+.compare-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compare-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.compare-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.compare-container {
+  position: relative;
+  cursor: col-resize;
+  user-select: none;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.compare-img {
+  display: block;
+  max-width: min(82vw, 960px);
+  max-height: calc(90vh - 50px);
+  width: auto;
+  height: auto;
+  pointer-events: none;
+}
+
+.compare-reveal {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.compare-img-overlay {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.compare-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: white;
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+.compare-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 38px;
+  height: 38px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.compare-label {
+  position: absolute;
+  top: 10px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  line-height: 1.5;
+}
+
+.compare-label-left {
+  left: 10px;
+}
+
+.compare-label-right {
+  right: 10px;
 }
 
 /* ── Metric rows (right panel) ── */

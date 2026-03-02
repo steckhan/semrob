@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import ImageCompare from "./components/ImageCompare";
 import MaskCanvas from "./components/MaskCanvas";
 
 type JobOutput = {
@@ -96,6 +97,7 @@ export default function HomePage() {
   const [inpaintMode, setInpaintMode] = useState<"local" | "api">("local");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiModel, setOpenaiModel] = useState<OpenAIModelValue>("gpt-image-1");
+  const [compareUrl, setCompareUrl] = useState<string | null>(null);
 
   // Load persisted settings
   useEffect(() => {
@@ -296,6 +298,15 @@ export default function HomePage() {
 
   return (
     <div className="app">
+      {/* ── Before/After compare modal ── */}
+      {compareUrl && imagePreview && (
+        <ImageCompare
+          originalUrl={imagePreview}
+          inpaintedUrl={compareUrl}
+          onClose={() => setCompareUrl(null)}
+        />
+      )}
+
       {/* ── Top bar ── */}
       <header className="topbar">
         <div className="topbar-logo">
@@ -863,11 +874,23 @@ export default function HomePage() {
                     <div className="card-body">
                       <div className="gallery">
                         {outputs.map((output) => (
-                          <img
+                          <div
                             key={`${workflowName}-${output.variationIndex}`}
-                            src={output.url}
-                            alt={`${workflowName} variation ${output.variationIndex}`}
-                          />
+                            className="gallery-item"
+                          >
+                            <img
+                              src={output.url}
+                              alt={`${workflowName} variation ${output.variationIndex}`}
+                            />
+                            {imagePreview && (
+                              <button
+                                className="gallery-compare-btn"
+                                onClick={() => setCompareUrl(output.url)}
+                              >
+                                ⇄ Compare
+                              </button>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
