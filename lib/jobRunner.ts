@@ -191,7 +191,8 @@ export async function createJob({
 }
 
 async function runOpenAIJob(job: JobRecord, apiKey: string, model?: string): Promise<void> {
-  await updateJobStatus(job, "running");
+  // Capture the returned record so startedAt is preserved in the completed call
+  const runningJob = await updateJobStatus(job, "running");
 
   const jobDir = path.join(UPLOADS_DIR, job.id);
   const [imageBuffer, maskBuffer] = await Promise.all([
@@ -205,10 +206,10 @@ async function runOpenAIJob(job: JobRecord, apiKey: string, model?: string): Pro
   const results = await runOpenAIInpainting({
     imageBuffer,
     maskBuffer,
-    prompt: job.params.positivePrompt,
+    prompt: runningJob.params.positivePrompt,
     apiKey,
-    n: job.params.variationCount,
-    model: model ?? job.openaiModel ?? "gpt-image-1",
+    n: runningJob.params.variationCount,
+    model: model ?? runningJob.openaiModel ?? "gpt-image-1",
   });
 
   const outputs: JobOutput[] = results.map((buffer, i) => {
@@ -228,7 +229,8 @@ async function runOpenAIJob(job: JobRecord, apiKey: string, model?: string): Pro
     results.map((buffer, i) => fs.writeFile(outputs[i].filePath, buffer)),
   );
 
-  await updateJobStatus({ ...job, outputs }, "completed");
+  // Spread runningJob (has startedAt) so the completed record retains it
+  await updateJobStatus({ ...runningJob, outputs }, "completed");
 }
 
 async function runJob(
@@ -246,10 +248,11 @@ async function runJob(
     return;
   }
 
-  await updateJobStatus(job, "running");
+  // Capture the returned record so startedAt is preserved in the completed call
+  const runningJob = await updateJobStatus(job, "running");
   await fs.mkdir(OUTPUTS_DIR, { recursive: true });
 
-  const comfyBaseUrl = job.comfyBaseUrl ?? COMFYUI_BASE_URL;
+  const comfyBaseUrl = runningJob.comfyBaseUrl ?? COMFYUI_BASE_URL;
 
   const outputs: JobOutput[] = [];
   const promptIds: Record<string, string> = {};
@@ -264,15 +267,15 @@ async function runJob(
       },
       imagePath,
       maskPath,
-      job.params,
+      runningJob.params,
     );
     const { promptId } = await submitPatchedWorkflow(patchedWorkflow, comfyBaseUrl);
     promptIds[workflow.name] = promptId;
     const patchedWorkflows = {
-      ...(job.patchedWorkflows ?? {}),
+      ...(runningJob.patchedWorkflows ?? {}),
       [workflow.name]: patchedWorkflow,
     };
-    await writeJob({ ...job, promptIds, patchedWorkflows });
+    await writeJob({ ...runningJob, promptIds, patchedWorkflows });
 
     let completed = false;
     while (!completed) {
@@ -282,7 +285,7 @@ async function runJob(
         for (const output of pollOutputs) {
           const filename = output.filename ?? path.basename(output.filePath);
           const subfolder = output.subfolder ?? "";
-          const localDir = path.join(OUTPUTS_DIR, job.id, workflow.name);
+          const localDir = path.join(OUTPUTS_DIR, runningJob.id, workflow.name);
           const localPath = path.join(localDir, filename);
           await fs.mkdir(localDir, { recursive: true });
           await copyOutputToLocal(
@@ -299,7 +302,7 @@ async function runJob(
             workflowName: workflow.name,
             filePath: localPath,
             source: "local",
-            url: `/api/jobs/${job.id}/files/${encodeURIComponent(
+            url: `/api/jobs/${runningJob.id}/files/${encodeURIComponent(
               workflow.name,
             )}/${encodeURIComponent(filename)}`,
           });
@@ -309,9 +312,10 @@ async function runJob(
     }
   });
 
+  // Spread runningJob (has startedAt) so the completed record retains it
   await updateJobStatus(
     {
-      ...job,
+      ...runningJob,
       outputs,
       promptIds,
     },
