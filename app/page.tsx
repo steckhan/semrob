@@ -13,12 +13,26 @@ type JobOutput = {
 type JobRecord = {
   id: string;
   status: string;
+  createdAt?: string;
+  startedAt?: string;
+  completedAt?: string;
   inpaintMode?: "local" | "api";
   openaiModel?: string;
   comfyBaseUrl?: string;
   error?: string;
   outputs: JobOutput[];
 };
+
+function formatDuration(startedAt?: string, completedAt?: string): string | null {
+  if (!startedAt || !completedAt) return null;
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (ms < 0) return null;
+  const totalSec = ms / 1000;
+  if (totalSec < 60) return `${totalSec.toFixed(1)} s`;
+  const m = Math.floor(totalSec / 60);
+  const s = Math.round(totalSec % 60);
+  return `${m}m ${s}s`;
+}
 
 type WorkflowMapping = {
   workflowName: string;
@@ -810,6 +824,14 @@ export default function HomePage() {
                         : "ComfyUI"}
                     </span>
                   </div>
+                  {formatDuration(job.startedAt, job.completedAt) && (
+                    <div className="metric-row">
+                      <span className="metric-label">Duration</span>
+                      <span className="metric-value neutral">
+                        {formatDuration(job.startedAt, job.completedAt)}
+                      </span>
+                    </div>
+                  )}
                   <div className="metric-row">
                     <span className="metric-label">Job ID</span>
                     <span
@@ -830,7 +852,14 @@ export default function HomePage() {
               {job.status === "completed" &&
                 Object.entries(groupedOutputs).map(([workflowName, outputs]) => (
                   <div key={workflowName} className="card">
-                    <div className="card-header">{workflowName}</div>
+                    <div className="card-header">
+                      <span>{workflowName}</span>
+                      {formatDuration(job.startedAt, job.completedAt) && (
+                        <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
+                          ⏱ {formatDuration(job.startedAt, job.completedAt)}
+                        </span>
+                      )}
+                    </div>
                     <div className="card-body">
                       <div className="gallery">
                         {outputs.map((output) => (
