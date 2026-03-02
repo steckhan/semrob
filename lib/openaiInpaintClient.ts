@@ -11,41 +11,34 @@ export type OpenAIInpaintInput = {
 };
 
 /**
- * Embeds the inpaint mask directly into the source image's alpha channel.
+ * Converts our canvas mask (white = inpaint area, black = keep area)
+ * to the RGBA PNG format the images/edits endpoint expects:
+ *   alpha = 0   (transparent) → model edits this area
+ *   alpha = 255 (opaque)      → model keeps this area
  *
- * gpt-image-1 uses the alpha channel of the *image* to identify the edit region:
- *   alpha = 0   (transparent) → model rewrites this pixel
- *   alpha = 255 (opaque)      → model keeps this pixel
- *
- * Our canvas mask convention: white (R > 128) = inpaint area, black = keep area.
- * So we set alpha=0 where the mask is white and alpha=255 where it is black.
- *
- * A separate `mask` parameter is NOT used — gpt-image-1 ignores it.
+ * NOTE: As of mid-2025, gpt-image-1 has a confirmed model-level bug where it
+ * ignores the mask and regenerates the entire image. This is the correct API
+ * format per OpenAI docs; the limitation is in the model, not the code.
+ * See: https://community.openai.com/t/image-editing-inpainting-with-a-mask-for-gpt-image-1-replaces-the-entire-image/1244275
  */
-async function embedMaskIntoImage(
-  imageBuffer: Buffer,
-  maskBuffer: Buffer
+async function convertMaskForOpenAI(
+  maskBuffer: Buffer,
+  width: number,
+  height: number
 ): Promise<Buffer> {
-  const meta = await sharp(imageBuffer).metadata();
-  const { width, height } = meta;
-  if (!width || !height) throw new Error("Could not read image dimensions.");
-
-  const { data: imgData } = await sharp(imageBuffer)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  // Resize mask to match image dimensions (in case they differ) and convert to greyscale
   const { data: maskData } = await sharp(maskBuffer)
     .resize(width, height, { fit: "fill" })
     .grayscale()
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const rgba = Buffer.from(imgData);
+  // Build a fresh RGBA buffer: RGB=0, alpha driven by mask brightness
+  const rgba = Buffer.alloc(width * height * 4);
   for (let i = 0; i < maskData.length; i++) {
-    // White mask pixel (> 128) → inpaint area → transparent in image
-    rgba[i * 4 + 3] = maskData[i] > 128 ? 0 : 255;
+    rgba[i * 4] = 0;
+    rgba[i * 4 + 1] = 0;
+    rgba[i * 4 + 2] = 0;
+    rgba[i * 4 + 3] = maskData[i] > 128 ? 0 : 255; // white=inpaint→transparent, black=keep→opaque
   }
 
   return sharp(rgba, {
@@ -63,14 +56,21 @@ export async function runOpenAIInpainting({
   n = 1,
   model = "gpt-image-1",
 }: OpenAIInpaintInput): Promise<Buffer[]> {
-  // The mask is baked into the image's alpha channel — no separate mask file needed.
-  const imageWithMask = await embedMaskIntoImage(imageBuffer, maskBuffer);
+  const meta = await sharp(imageBuffer).metadata();
+  const { width, height } = meta;
+  if (!width || !height) throw new Error("Could not read image dimensions.");
+
+  const [pngImage, convertedMask] = await Promise.all([
+    sharp(imageBuffer).png().toBuffer(),
+    convertMaskForOpenAI(maskBuffer, width, height),
+  ]);
 
   const client = new OpenAI({ apiKey });
 
   const response = await client.images.edit({
     model,
-    image: await toFile(imageWithMask, "image.png", { type: "image/png" }),
+    image: await toFile(pngImage, "image.png", { type: "image/png" }),
+    mask: await toFile(convertedMask, "mask.png", { type: "image/png" }),
     prompt,
     n: Math.min(n, 10),
   } as Parameters<typeof client.images.edit>[0]);
