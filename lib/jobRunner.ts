@@ -113,6 +113,7 @@ export type CreateJobInput = {
   comfyBaseUrl?: string;
   inpaintMode?: "local" | "api";
   openaiApiKey?: string;
+  openaiModel?: string;
 };
 
 export async function createJob({
@@ -124,6 +125,7 @@ export async function createJob({
   comfyBaseUrl,
   inpaintMode = "local",
   openaiApiKey,
+  openaiModel,
 }: CreateJobInput): Promise<JobRecord> {
   await ensureJobStore();
 
@@ -162,6 +164,7 @@ export async function createJob({
     createdAt: new Date().toISOString(),
     status: "queued",
     inpaintMode,
+    openaiModel: inpaintMode === "api" ? (openaiModel ?? "gpt-image-1") : undefined,
     comfyBaseUrl: inpaintMode !== "api" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
     params,
     workflows: workflows.map((workflow) => workflow.name),
@@ -179,6 +182,7 @@ export async function createJob({
     comfyMaskPathWindows,
     inpaintMode,
     openaiApiKey,
+    openaiModel,
   ).catch(async (error) => {
     await updateJobStatus(job, "failed", (error as Error).message);
   });
@@ -186,7 +190,7 @@ export async function createJob({
   return job;
 }
 
-async function runOpenAIJob(job: JobRecord, apiKey: string): Promise<void> {
+async function runOpenAIJob(job: JobRecord, apiKey: string, model?: string): Promise<void> {
   await updateJobStatus(job, "running");
 
   const jobDir = path.join(UPLOADS_DIR, job.id);
@@ -204,6 +208,7 @@ async function runOpenAIJob(job: JobRecord, apiKey: string): Promise<void> {
     prompt: job.params.positivePrompt,
     apiKey,
     n: job.params.variationCount,
+    model: model ?? job.openaiModel ?? "gpt-image-1",
   });
 
   const outputs: JobOutput[] = results.map((buffer, i) => {
@@ -234,9 +239,10 @@ async function runJob(
   maskPath: string,
   inpaintMode?: "local" | "api",
   openaiApiKey?: string,
+  openaiModel?: string,
 ): Promise<void> {
   if (inpaintMode === "api") {
-    await runOpenAIJob(job, openaiApiKey ?? "");
+    await runOpenAIJob(job, openaiApiKey ?? "", openaiModel);
     return;
   }
 

@@ -14,6 +14,7 @@ type JobRecord = {
   id: string;
   status: string;
   inpaintMode?: "local" | "api";
+  openaiModel?: string;
   comfyBaseUrl?: string;
   error?: string;
   outputs: JobOutput[];
@@ -43,7 +44,14 @@ type MappingIssue = {
 const COMFYUI_LOCAL_STORAGE_KEY = "comfyBaseUrl";
 const INPAINT_MODE_KEY = "inpaintMode";
 const OPENAI_API_KEY_KEY = "openaiApiKey";
+const OPENAI_MODEL_KEY = "openaiModel";
 const DEFAULT_COMFYUI_BASE_URL = "http://172.26.224.1:8188";
+
+const OPENAI_MODELS = [
+  { value: "gpt-image-1", label: "gpt-image-1" },
+  { value: "gpt-image-1.5", label: "gpt-image-1.5" },
+] as const;
+type OpenAIModelValue = (typeof OPENAI_MODELS)[number]["value"];
 
 const DEFAULT_PARAMS = {
   seed: 42,
@@ -73,6 +81,7 @@ export default function HomePage() {
   const [comfyTestError, setComfyTestError] = useState<string | null>(null);
   const [inpaintMode, setInpaintMode] = useState<"local" | "api">("local");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [openaiModel, setOpenaiModel] = useState<OpenAIModelValue>("gpt-image-1");
 
   // Load persisted settings
   useEffect(() => {
@@ -84,6 +93,11 @@ export default function HomePage() {
 
     const storedKey = window.localStorage.getItem(OPENAI_API_KEY_KEY);
     if (storedKey) setOpenaiApiKey(storedKey);
+
+    const storedModel = window.localStorage.getItem(OPENAI_MODEL_KEY);
+    if (storedModel === "gpt-image-1" || storedModel === "gpt-image-1.5") {
+      setOpenaiModel(storedModel);
+    }
   }, []);
 
   useEffect(() => {
@@ -134,6 +148,7 @@ export default function HomePage() {
     formData.append("inpaintMode", inpaintMode);
     if (inpaintMode === "api") {
       formData.append("openaiApiKey", openaiApiKey.trim());
+      formData.append("openaiModel", openaiModel);
     } else {
       formData.append("comfyBaseUrl", comfyBaseUrl.trim());
     }
@@ -154,6 +169,7 @@ export default function HomePage() {
       window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
     } else {
       window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
+      window.localStorage.setItem(OPENAI_MODEL_KEY, openaiModel);
     }
     setIsSubmitting(false);
   };
@@ -281,7 +297,7 @@ export default function HomePage() {
           <span
             className={`badge ${inpaintMode === "local" ? "badge-local" : "badge-api"}`}
           >
-            {inpaintMode === "local" ? "Local · ComfyUI" : "Cloud · gpt-image-1"}
+            {inpaintMode === "local" ? "Local · ComfyUI" : `Cloud · ${openaiModel}`}
           </span>
           {job && (
             <span
@@ -384,10 +400,24 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="card">
-              <div className="card-header">OpenAI API Key</div>
+              <div className="card-header">OpenAI Settings</div>
               <div className="card-body">
                 <div>
-                  <label>Key</label>
+                  <label>Model</label>
+                  <div className="seg-control">
+                    {OPENAI_MODELS.map((m) => (
+                      <button
+                        key={m.value}
+                        className={`seg-btn${openaiModel === m.value ? " active" : ""}`}
+                        onClick={() => setOpenaiModel(m.value)}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label>API Key</label>
                   <input
                     className="input"
                     type="password"
@@ -775,7 +805,9 @@ export default function HomePage() {
                   <div className="metric-row">
                     <span className="metric-label">Backend</span>
                     <span className="metric-value neutral">
-                      {job.inpaintMode === "api" ? "OpenAI API" : "ComfyUI"}
+                      {job.inpaintMode === "api"
+                        ? (job.openaiModel ?? "OpenAI API")
+                        : "ComfyUI"}
                     </span>
                   </div>
                   <div className="metric-row">
