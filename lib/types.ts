@@ -50,6 +50,7 @@ export type JobRecord = {
   id: string;
   createdAt: string;
   status: JobStatus;
+  inpaintMode?: "local" | "api";
   comfyBaseUrl?: string;
   params: InpaintParams;
   workflows: string[];

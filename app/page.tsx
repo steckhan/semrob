@@ -40,6 +40,8 @@ type MappingIssue = {
 };
 
 const COMFYUI_LOCAL_STORAGE_KEY = "comfyBaseUrl";
+const INPAINT_MODE_KEY = "inpaintMode";
+const OPENAI_API_KEY_KEY = "openaiApiKey";
 const DEFAULT_COMFYUI_BASE_URL = "http://172.26.224.1:8188";
 
 const DEFAULT_PARAMS = {
@@ -69,19 +71,24 @@ export default function HomePage() {
   const [isTestingComfy, setIsTestingComfy] = useState(false);
   const [comfyTestMessage, setComfyTestMessage] = useState<string | null>(null);
   const [comfyTestError, setComfyTestError] = useState<string | null>(null);
+  const [inpaintMode, setInpaintMode] = useState<"local" | "api">("local");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(COMFYUI_LOCAL_STORAGE_KEY);
-    if (!stored) {
-      return;
+    if (stored?.trim()) {
+      setComfyBaseUrl(stored.trim());
     }
 
-    const trimmed = stored.trim();
-    if (!trimmed) {
-      return;
+    const storedMode = window.localStorage.getItem(INPAINT_MODE_KEY);
+    if (storedMode === "api" || storedMode === "local") {
+      setInpaintMode(storedMode);
     }
 
-    setComfyBaseUrl(trimmed);
+    const storedApiKey = window.localStorage.getItem(OPENAI_API_KEY_KEY);
+    if (storedApiKey) {
+      setOpenaiApiKey(storedApiKey);
+    }
   }, []);
 
   useEffect(() => {
@@ -130,7 +137,12 @@ export default function HomePage() {
     Object.entries(params).forEach(([key, value]) => {
       formData.append(key, String(value));
     });
-    formData.append("comfyBaseUrl", comfyBaseUrl.trim());
+    formData.append("inpaintMode", inpaintMode);
+    if (inpaintMode === "api") {
+      formData.append("openaiApiKey", openaiApiKey.trim());
+    } else {
+      formData.append("comfyBaseUrl", comfyBaseUrl.trim());
+    }
 
     const response = await fetch("/api/jobs", {
       method: "POST",
@@ -149,7 +161,12 @@ export default function HomePage() {
     setJob(payload);
     setComfyTestError(null);
     setComfyTestMessage("Job submitted successfully.");
-    window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
+    window.localStorage.setItem(INPAINT_MODE_KEY, inpaintMode);
+    if (inpaintMode === "local") {
+      window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
+    } else {
+      window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
+    }
     setIsSubmitting(false);
   };
 
@@ -305,6 +322,46 @@ export default function HomePage() {
       </div>
 
       <div className="panel">
+        <h2>Inpainting Mode</h2>
+        <div className="row">
+          <button
+            type="button"
+            className="button"
+            style={{ opacity: inpaintMode === "local" ? 1 : 0.5 }}
+            onClick={() => setInpaintMode("local")}
+          >
+            Local (ComfyUI)
+          </button>
+          <button
+            type="button"
+            className="button"
+            style={{ opacity: inpaintMode === "api" ? 1 : 0.5 }}
+            onClick={() => setInpaintMode("api")}
+          >
+            OpenAI API
+          </button>
+        </div>
+      </div>
+
+      {inpaintMode === "api" && (
+        <div className="panel">
+          <h2>OpenAI API Key</h2>
+          <label htmlFor="openai-api-key">
+            API Key
+          </label>
+          <input
+            id="openai-api-key"
+            className="input"
+            type="password"
+            value={openaiApiKey}
+            onChange={(event) => setOpenaiApiKey(event.target.value)}
+            placeholder="sk-… (leave blank to use OPENAI_API_KEY env var)"
+          />
+        </div>
+      )}
+
+      {inpaintMode === "local" && (
+      <div className="panel">
         <h2>ComfyUI Connection</h2>
         <div className="row">
           <div style={{ flex: 1 }}>
@@ -332,6 +389,7 @@ export default function HomePage() {
         {comfyTestMessage && <p className="small">{comfyTestMessage}</p>}
         {comfyTestError && <p className="small">{comfyTestError}</p>}
       </div>
+      )}
 
       <div className="panel">
         <label htmlFor="image">Image Upload</label>
@@ -346,6 +404,7 @@ export default function HomePage() {
 
       <MaskCanvas imageUrl={imagePreview} onMaskReady={setMaskDataUrl} />
 
+      {inpaintMode === "local" && (
       <div className="panel">
         <h2>Workflow Node Mapping</h2>
         <p className="small">
@@ -458,22 +517,25 @@ export default function HomePage() {
           Save Workflow Mapping
         </button>
       </div>
+      )}
 
       <div className="panel">
         <h2>Parameters</h2>
-        <label className="row" style={{ alignItems: "center" }}>
-          <input
-            type="checkbox"
-            checked={params.useWorkflowDefaults}
-            onChange={(event) =>
-              setParams((prev) => ({
-                ...prev,
-                useWorkflowDefaults: event.target.checked,
-              }))
-            }
-          />
-          <span>Use workflow defaults for sampler parameters</span>
-        </label>
+        {inpaintMode === "local" && (
+          <label className="row" style={{ alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={params.useWorkflowDefaults}
+              onChange={(event) =>
+                setParams((prev) => ({
+                  ...prev,
+                  useWorkflowDefaults: event.target.checked,
+                }))
+              }
+            />
+            <span>Use workflow defaults for sampler parameters</span>
+          </label>
+        )}
         <div className="grid">
           <div style={{ gridColumn: "1 / -1" }}>
             <label>Positive Prompt</label>
@@ -481,7 +543,7 @@ export default function HomePage() {
               className="input"
               type="text"
               value={params.positivePrompt}
-              disabled={params.useWorkflowDefaults}
+              disabled={inpaintMode === "local" && params.useWorkflowDefaults}
               onChange={(event) =>
                 setParams((prev) => ({
                   ...prev,
@@ -490,6 +552,7 @@ export default function HomePage() {
               }
             />
           </div>
+          {inpaintMode === "local" && (
           <div style={{ gridColumn: "1 / -1" }}>
             <label>Negative Prompt</label>
             <input
@@ -505,122 +568,127 @@ export default function HomePage() {
               }
             />
           </div>
-          <div>
-            <label>Seed</label>
-            <input
-              className="input"
-              type="number"
-              value={params.seed}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  seed: Number(event.target.value),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <label>Steps</label>
-            <input
-              className="input"
-              type="number"
-              value={params.steps}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  steps: Number(event.target.value),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <label>CFG Scale</label>
-            <input
-              className="input"
-              type="number"
-              step={0.1}
-              value={params.cfgScale}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  cfgScale: Number(event.target.value),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <label>Sampler</label>
-            <select
-              value={params.sampler}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  sampler: event.target.value,
-                }))
-              }
-            >
-              <option value="euler">euler</option>
-              <option value="euler_a">euler_a</option>
-              <option value="dpmpp_2m">dpmpp_2m</option>
-              <option value="dpmpp_sde">dpmpp_sde</option>
-            </select>
-          </div>
-          <div>
-            <label>Scheduler</label>
-            <select
-              value={params.scheduler}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  scheduler: event.target.value,
-                }))
-              }
-            >
-              <option value="normal">normal</option>
-              <option value="karras">karras</option>
-              <option value="simple">simple</option>
-            </select>
-          </div>
-          <div>
-            <label>Denoise</label>
-            <input
-              className="input"
-              type="number"
-              step={0.05}
-              min={0}
-              max={1}
-              value={params.denoise}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  denoise: Number(event.target.value),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <label>Mask Strength</label>
-            <input
-              className="input"
-              type="number"
-              step={0.05}
-              min={0}
-              max={1}
-              value={params.maskStrength}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  maskStrength: Number(event.target.value),
-                }))
-              }
-            />
-          </div>
+          )}
+          {inpaintMode === "local" && (
+            <>
+              <div>
+                <label>Seed</label>
+                <input
+                  className="input"
+                  type="number"
+                  value={params.seed}
+                  disabled={params.useWorkflowDefaults}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      seed: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label>Steps</label>
+                <input
+                  className="input"
+                  type="number"
+                  value={params.steps}
+                  disabled={params.useWorkflowDefaults}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      steps: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label>CFG Scale</label>
+                <input
+                  className="input"
+                  type="number"
+                  step={0.1}
+                  value={params.cfgScale}
+                  disabled={params.useWorkflowDefaults}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      cfgScale: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label>Sampler</label>
+                <select
+                  value={params.sampler}
+                  disabled={params.useWorkflowDefaults}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      sampler: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="euler">euler</option>
+                  <option value="euler_a">euler_a</option>
+                  <option value="dpmpp_2m">dpmpp_2m</option>
+                  <option value="dpmpp_sde">dpmpp_sde</option>
+                </select>
+              </div>
+              <div>
+                <label>Scheduler</label>
+                <select
+                  value={params.scheduler}
+                  disabled={params.useWorkflowDefaults}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      scheduler: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="normal">normal</option>
+                  <option value="karras">karras</option>
+                  <option value="simple">simple</option>
+                </select>
+              </div>
+              <div>
+                <label>Denoise</label>
+                <input
+                  className="input"
+                  type="number"
+                  step={0.05}
+                  min={0}
+                  max={1}
+                  value={params.denoise}
+                  disabled={params.useWorkflowDefaults}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      denoise: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label>Mask Strength</label>
+                <input
+                  className="input"
+                  type="number"
+                  step={0.05}
+                  min={0}
+                  max={1}
+                  value={params.maskStrength}
+                  onChange={(event) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      maskStrength: Number(event.target.value),
+                    }))
+                  }
+                />
+              </div>
+            </>
+          )}
           <div>
             <label>Variations</label>
             <input

@@ -19,6 +19,7 @@ import type {
 import { runWithConcurrency } from "./concurrency";
 import { buildPatchedWorkflow, pollWorkflow, submitPatchedWorkflow } from "./comfyuiClient";
 import { ensureJobStore, updateJobStatus, writeJob } from "./jobStore";
+import { runOpenAIInpainting } from "./openaiInpaintClient";
 import { DEFAULT_PATCH_TARGETS } from "./workflowPatcher";
 
 const UPLOADS_DIR = path.join(DATA_ROOT, "uploads");
@@ -110,6 +111,8 @@ export type CreateJobInput = {
   workflows: WorkflowDefinition[];
   mappings: WorkflowMapping[];
   comfyBaseUrl?: string;
+  inpaintMode?: "local" | "api";
+  openaiApiKey?: string;
 };
 
 export async function createJob({
@@ -119,6 +122,8 @@ export async function createJob({
   workflows,
   mappings,
   comfyBaseUrl,
+  inpaintMode = "local",
+  openaiApiKey,
 }: CreateJobInput): Promise<JobRecord> {
   await ensureJobStore();
 
@@ -132,19 +137,32 @@ export async function createJob({
   await fs.writeFile(imagePath, imageBuffer);
   await fs.writeFile(maskPath, maskBuffer);
 
-  const comfyJobDir = path.join(COMFYUI_INPUT_DIR, jobId);
-  const comfyImagePath = path.join(comfyJobDir, "input.png");
-  const comfyMaskPath = path.join(comfyJobDir, "mask.png");
+  // Only copy to ComfyUI input directory when running locally
+  let comfyImagePathWindows = "";
+  let comfyMaskPathWindows = "";
+  if (inpaintMode !== "api") {
+    const comfyJobDir = path.join(COMFYUI_INPUT_DIR, jobId);
+    const comfyImagePath = path.join(comfyJobDir, "input.png");
+    const comfyMaskPath = path.join(comfyJobDir, "mask.png");
 
-  await fs.mkdir(comfyJobDir, { recursive: true });
-  await fs.writeFile(comfyImagePath, imageBuffer);
-  await fs.writeFile(comfyMaskPath, maskBuffer);
+    await fs.mkdir(comfyJobDir, { recursive: true });
+    await fs.writeFile(comfyImagePath, imageBuffer);
+    await fs.writeFile(comfyMaskPath, maskBuffer);
+
+    comfyImagePathWindows = path
+      .join(COMFYUI_INPUT_DIR_WINDOWS, jobId, "input.png")
+      .replace(/\\/g, "/");
+    comfyMaskPathWindows = path
+      .join(COMFYUI_INPUT_DIR_WINDOWS, jobId, "mask.png")
+      .replace(/\\/g, "/");
+  }
 
   const job: JobRecord = {
     id: jobId,
     createdAt: new Date().toISOString(),
     status: "queued",
-    comfyBaseUrl: comfyBaseUrl ?? COMFYUI_BASE_URL,
+    inpaintMode,
+    comfyBaseUrl: inpaintMode !== "api" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
     params,
     workflows: workflows.map((workflow) => workflow.name),
     promptIds: {},
@@ -152,12 +170,6 @@ export async function createJob({
   };
 
   await writeJob(job);
-  const comfyImagePathWindows = path
-    .join(COMFYUI_INPUT_DIR_WINDOWS, jobId, "input.png")
-    .replace(/\\/g, "/");
-  const comfyMaskPathWindows = path
-    .join(COMFYUI_INPUT_DIR_WINDOWS, jobId, "mask.png")
-    .replace(/\\/g, "/");
 
   void runJob(
     job,
@@ -165,11 +177,53 @@ export async function createJob({
     mappings,
     comfyImagePathWindows,
     comfyMaskPathWindows,
+    inpaintMode,
+    openaiApiKey,
   ).catch(async (error) => {
     await updateJobStatus(job, "failed", (error as Error).message);
   });
 
   return job;
+}
+
+async function runOpenAIJob(job: JobRecord, apiKey: string): Promise<void> {
+  await updateJobStatus(job, "running");
+
+  const jobDir = path.join(UPLOADS_DIR, job.id);
+  const [imageBuffer, maskBuffer] = await Promise.all([
+    fs.readFile(path.join(jobDir, "input.png")),
+    fs.readFile(path.join(jobDir, "mask.png")),
+  ]);
+
+  const outputDir = path.join(OUTPUTS_DIR, job.id, "openai");
+  await fs.mkdir(outputDir, { recursive: true });
+
+  const results = await runOpenAIInpainting({
+    imageBuffer,
+    maskBuffer,
+    prompt: job.params.positivePrompt,
+    apiKey,
+    n: job.params.variationCount,
+  });
+
+  const outputs: JobOutput[] = results.map((buffer, i) => {
+    const filename = `output_${i}.png`;
+    const filePath = path.join(outputDir, filename);
+    return {
+      workflowName: "openai",
+      variationIndex: i,
+      filePath,
+      url: `/api/jobs/${job.id}/files/${encodeURIComponent("openai")}/${encodeURIComponent(filename)}`,
+      source: "local" as const,
+    };
+  });
+
+  // Write output files
+  await Promise.all(
+    results.map((buffer, i) => fs.writeFile(outputs[i].filePath, buffer)),
+  );
+
+  await updateJobStatus({ ...job, outputs }, "completed");
 }
 
 async function runJob(
@@ -178,7 +232,14 @@ async function runJob(
   mappings: WorkflowMapping[],
   imagePath: string,
   maskPath: string,
+  inpaintMode?: "local" | "api",
+  openaiApiKey?: string,
 ): Promise<void> {
+  if (inpaintMode === "api") {
+    await runOpenAIJob(job, openaiApiKey ?? "");
+    return;
+  }
+
   await updateJobStatus(job, "running");
   await fs.mkdir(OUTPUTS_DIR, { recursive: true });
 
