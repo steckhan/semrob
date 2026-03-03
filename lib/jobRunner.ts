@@ -9,6 +9,10 @@ import {
   DATA_ROOT,
   MAX_PARALLEL_WORKFLOWS,
 } from "./constants";
+
+/** On native Windows, process.platform === "win32"; use the Windows path. */
+const EFFECTIVE_COMFYUI_INPUT_DIR =
+  process.platform === "win32" ? COMFYUI_INPUT_DIR_WINDOWS : COMFYUI_INPUT_DIR;
 import type {
   InpaintParams,
   JobOutput,
@@ -132,13 +136,20 @@ export async function createJob({
   await fs.writeFile(imagePath, imageBuffer);
   await fs.writeFile(maskPath, maskBuffer);
 
-  const comfyJobDir = path.join(COMFYUI_INPUT_DIR, jobId);
+  const comfyJobDir = path.join(EFFECTIVE_COMFYUI_INPUT_DIR, jobId);
   const comfyImagePath = path.join(comfyJobDir, "input.png");
   const comfyMaskPath = path.join(comfyJobDir, "mask.png");
 
-  await fs.mkdir(comfyJobDir, { recursive: true });
-  await fs.writeFile(comfyImagePath, imageBuffer);
-  await fs.writeFile(comfyMaskPath, maskBuffer);
+  try {
+    await fs.mkdir(comfyJobDir, { recursive: true });
+    await fs.writeFile(comfyImagePath, imageBuffer);
+    await fs.writeFile(comfyMaskPath, maskBuffer);
+  } catch (err) {
+    console.warn(
+      `[jobRunner] Could not write files to ComfyUI input dir "${comfyJobDir}". ` +
+      `ComfyUI must be able to access images via its own input directory. Error: ${(err as Error).message}`,
+    );
+  }
 
   const job: JobRecord = {
     id: jobId,
@@ -166,7 +177,9 @@ export async function createJob({
     comfyImagePathWindows,
     comfyMaskPathWindows,
   ).catch(async (error) => {
-    await updateJobStatus(job, "failed", (error as Error).message);
+    const message = (error as Error).message ?? String(error);
+    console.error(`[jobRunner] Job ${job.id} failed:`, message);
+    await updateJobStatus(job, "failed", message);
   });
 
   return job;

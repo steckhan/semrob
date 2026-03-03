@@ -1,14 +1,17 @@
 [
   {
-    "workflowName": "flux_fill_inpaint",
+    "workflowName": "flux2_klein",
     "targets": {
-      "imageNodeId": "17",
+      "imageNodeId": "76",
       "imageInputKey": "image",
-      "maskNodeId": "38",
-      "maskInputKey": "mask",
-      "paramsNodeId": "3",
-      "positivePromptNodeId": "23",
-      "negativePromptNodeId": "7"
+      "paramsNodeId": "99",
+      "positivePromptNodeId": "149",
+      "seedNodeId": "99",
+      "stepsNodeId": "116",
+      "samplerNodeId": "107",
+      "cfgNodeId": "115",
+      "colorMatchNodeId": "195",
+      "modeSwitchNodeId": "161"
     }
   }
 ]

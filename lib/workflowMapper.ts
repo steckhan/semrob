@@ -36,6 +36,12 @@ export function normalizeMappingPayload(
       paramsNodeId: entry.targets.paramsNodeId,
       positivePromptNodeId: entry.targets.positivePromptNodeId,
       negativePromptNodeId: entry.targets.negativePromptNodeId,
+      seedNodeId: entry.targets.seedNodeId,
+      stepsNodeId: entry.targets.stepsNodeId,
+      samplerNodeId: entry.targets.samplerNodeId,
+      cfgNodeId: entry.targets.cfgNodeId,
+      colorMatchNodeId: entry.targets.colorMatchNodeId,
+      modeSwitchNodeId: entry.targets.modeSwitchNodeId,
     },
   }));
 }

@@ -5,9 +5,14 @@ import { useEffect, useRef, useState } from "react";
 type MaskCanvasProps = {
   imageUrl: string | null;
   onMaskReady: (maskDataUrl: string) => void;
+  /** Called whenever the mask changes, with a data URL of the source image
+   *  composited with the painted mask as the alpha channel (RGBA PNG).
+   *  Painted (white) areas become transparent, matching ComfyUI's LoadImage
+   *  clipspace convention where transparent pixels mark the inpaint region. */
+  onMaskedImageReady?: (rgbaDataUrl: string) => void;
 };
 
-export default function MaskCanvas({ imageUrl, onMaskReady }: MaskCanvasProps) {
+export default function MaskCanvas({ imageUrl, onMaskReady, onMaskedImageReady }: MaskCanvasProps) {
   const displayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -48,6 +53,54 @@ export default function MaskCanvas({ imageUrl, onMaskReady }: MaskCanvasProps) {
     exportContext.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
     exportContext.drawImage(maskCanvas, 0, 0);
     return exportCanvas.toDataURL("image/png");
+  };
+
+  /**
+   * Exports the source image composited with the painted mask as alpha.
+   * Painted (white) pixels → transparent (alpha=0) in the output RGBA PNG.
+   * This is the format ComfyUI's LoadImage expects for clipspace inpainting.
+   */
+  const exportMaskedImage = () => {
+    const maskCanvas = maskCanvasRef.current;
+    const image = imageRef.current;
+    if (!maskCanvas || !image) {
+      return null;
+    }
+    const w = maskCanvas.width;
+    const h = maskCanvas.height;
+
+    // Draw original image onto a temp canvas to read its pixels
+    const srcCanvas = document.createElement("canvas");
+    srcCanvas.width = w;
+    srcCanvas.height = h;
+    const srcCtx = srcCanvas.getContext("2d");
+    if (!srcCtx) return null;
+    srcCtx.drawImage(image, 0, 0, w, h);
+    const srcData = srcCtx.getImageData(0, 0, w, h);
+
+    // Read the mask pixels (white = painted region)
+    const maskCtx = maskCanvas.getContext("2d");
+    if (!maskCtx) return null;
+    const maskData = maskCtx.getImageData(0, 0, w, h);
+
+    // Compose RGBA: image RGB + inverted mask as alpha
+    // Painted white areas (mask alpha > 0) → transparent in output
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = w;
+    outCanvas.height = h;
+    const outCtx = outCanvas.getContext("2d");
+    if (!outCtx) return null;
+    const outData = outCtx.createImageData(w, h);
+    for (let i = 0; i < w * h; i++) {
+      const p = i * 4;
+      outData.data[p] = srcData.data[p];         // R
+      outData.data[p + 1] = srcData.data[p + 1]; // G
+      outData.data[p + 2] = srcData.data[p + 2]; // B
+      // Mask alpha channel: painted white → 0 (transparent = inpaint), unpainted → 255 (opaque = keep)
+      outData.data[p + 3] = 255 - maskData.data[p + 3];
+    }
+    outCtx.putImageData(outData, 0, 0);
+    return outCanvas.toDataURL("image/png");
   };
 
   useEffect(() => {
@@ -111,8 +164,12 @@ export default function MaskCanvas({ imageUrl, onMaskReady }: MaskCanvasProps) {
       if (dataUrl) {
         onMaskReady(dataUrl);
       }
+      const rgbaUrl = exportMaskedImage();
+      if (rgbaUrl) {
+        onMaskedImageReady?.(rgbaUrl);
+      }
     };
-  }, [imageUrl, onMaskReady]);
+  }, [imageUrl, onMaskReady, onMaskedImageReady]);
 
   const startDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = displayCanvasRef.current;
@@ -135,6 +192,10 @@ export default function MaskCanvas({ imageUrl, onMaskReady }: MaskCanvasProps) {
     const dataUrl = exportMask();
     if (dataUrl) {
       onMaskReady(dataUrl);
+    }
+    const rgbaUrl = exportMaskedImage();
+    if (rgbaUrl) {
+      onMaskedImageReady?.(rgbaUrl);
     }
   };
 
@@ -241,6 +302,10 @@ export default function MaskCanvas({ imageUrl, onMaskReady }: MaskCanvasProps) {
     const dataUrl = exportMask();
     if (dataUrl) {
       onMaskReady(dataUrl);
+    }
+    const rgbaUrl = exportMaskedImage();
+    if (rgbaUrl) {
+      onMaskedImageReady?.(rgbaUrl);
     }
   };
 

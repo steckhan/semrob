@@ -2,21 +2,19 @@ import { NextResponse } from "next/server";
 
 import { COMFYUI_BASE_URL } from "@/lib/constants";
 import { createJob } from "@/lib/jobRunner";
-import type { InpaintParams } from "@/lib/types";
+import type { InpaintMode, InpaintParams } from "@/lib/types";
 import { loadWorkflowBundle } from "@/lib/workflowLoader";
 
 const DEFAULT_PARAMS: InpaintParams = {
   seed: 42,
-  steps: 28,
-  cfgScale: 8,
-  sampler: "euler",
-  scheduler: "normal",
-  denoise: 1,
-  maskStrength: 1,
+  steps: 4,
+  cfgScale: 1,
+  sampler: "euler_ancestral",
   variationCount: 4,
   useWorkflowDefaults: false,
-  positivePrompt: "wristwatch, metal casing, worn look",
-  negativePrompt: "",
+  positivePrompt: "",
+  colorMatchStrength: 0.4,
+  inpaintMode: "inpaint",
 };
 
 function parseComfyBaseUrl(rawValue: FormDataEntryValue | null): string | null {
@@ -76,11 +74,6 @@ export async function POST(request: Request) {
     steps: Number(formData.get("steps") ?? DEFAULT_PARAMS.steps),
     cfgScale: Number(formData.get("cfgScale") ?? DEFAULT_PARAMS.cfgScale),
     sampler: String(formData.get("sampler") ?? DEFAULT_PARAMS.sampler),
-    scheduler: String(formData.get("scheduler") ?? DEFAULT_PARAMS.scheduler),
-    denoise: Number(formData.get("denoise") ?? DEFAULT_PARAMS.denoise),
-    maskStrength: Number(
-      formData.get("maskStrength") ?? DEFAULT_PARAMS.maskStrength,
-    ),
     variationCount: Number(
       formData.get("variationCount") ?? DEFAULT_PARAMS.variationCount,
     ),
@@ -89,9 +82,12 @@ export async function POST(request: Request) {
     positivePrompt: String(
       formData.get("positivePrompt") ?? DEFAULT_PARAMS.positivePrompt,
     ),
-    negativePrompt: String(
-      formData.get("negativePrompt") ?? DEFAULT_PARAMS.negativePrompt,
+    colorMatchStrength: Number(
+      formData.get("colorMatchStrength") ?? DEFAULT_PARAMS.colorMatchStrength,
     ),
+    inpaintMode: (String(
+      formData.get("inpaintMode") ?? DEFAULT_PARAMS.inpaintMode,
+    ) === "outpaint" ? "outpaint" : "inpaint") as InpaintMode,
   };
 
   const { workflows, mappings } = await loadWorkflowBundle();

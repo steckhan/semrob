@@ -1,15 +1,15 @@
+export type InpaintMode = "inpaint" | "outpaint";
+
 export type InpaintParams = {
   seed: number;
   steps: number;
   cfgScale: number;
   sampler: string;
-  scheduler: string;
-  denoise: number;
-  maskStrength: number;
   variationCount: number;
   useWorkflowDefaults: boolean;
   positivePrompt: string;
-  negativePrompt: string;
+  colorMatchStrength: number;
+  inpaintMode: InpaintMode;
 };
 
 export type WorkflowDefinition = {
@@ -21,11 +21,24 @@ export type WorkflowDefinition = {
 export type WorkflowPatchTargets = {
   imageNodeId: string;
   imageInputKey?: string;
-  maskNodeId: string;
+  /** Omit when the mask is embedded in the image as an alpha channel (e.g. flux2_klein). */
+  maskNodeId?: string;
   maskInputKey?: string;
   paramsNodeId: string;
   positivePromptNodeId?: string;
   negativePromptNodeId?: string;
+  /** Node ID for seed-only nodes (e.g. "easy seed"). Falls back to paramsNodeId. */
+  seedNodeId?: string;
+  /** Node ID for steps/scheduler nodes (e.g. Flux2Scheduler). Falls back to paramsNodeId. */
+  stepsNodeId?: string;
+  /** Node ID for sampler-select nodes (e.g. KSamplerSelect). Falls back to paramsNodeId. */
+  samplerNodeId?: string;
+  /** Node ID for CFG guider nodes (e.g. CFGGuider). Falls back to paramsNodeId. */
+  cfgNodeId?: string;
+  /** Node ID for color match post-processing (e.g. ColorMatch). */
+  colorMatchNodeId?: string;
+  /** Node ID for inpaint/outpaint mode switch (e.g. ImpactInt). */
+  modeSwitchNodeId?: string;
 };
 
 export type WorkflowMapping = {

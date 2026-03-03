@@ -103,8 +103,13 @@ export async function pollWorkflow(
   }
 
   const outputs: JobOutput[] = [];
+  let outputIndex = 0;
   Object.values(record.outputs).forEach((output) => {
-    output.images?.forEach((image, index) => {
+    output.images?.forEach((image) => {
+      // Skip temp/preview images — only collect saved output images
+      if (image.type === "temp") {
+        return;
+      }
       const filePath = path.join(
         DATA_ROOT,
         "outputs",
@@ -114,7 +119,7 @@ export async function pollWorkflow(
       );
       outputs.push({
         workflowName: "",
-        variationIndex: index,
+        variationIndex: outputIndex,
         filePath,
         url: "",
         source: "comfyui",
@@ -122,6 +127,7 @@ export async function pollWorkflow(
         filename: image.filename,
         imageType: image.type,
       });
+      outputIndex += 1;
     });
   });
 

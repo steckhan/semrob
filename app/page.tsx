@@ -44,16 +44,14 @@ const DEFAULT_COMFYUI_BASE_URL = "http://172.26.224.1:8188";
 
 const DEFAULT_PARAMS = {
   seed: 42,
-  steps: 28,
-  cfgScale: 8,
-  sampler: "euler",
-  scheduler: "normal",
-  denoise: 1,
-  maskStrength: 1,
+  steps: 4,
+  cfgScale: 1,
+  sampler: "euler_ancestral",
   variationCount: 4,
   useWorkflowDefaults: false,
-  positivePrompt: "wristwatch, metal casing, worn look",
-  negativePrompt: "",
+  positivePrompt: "",
+  colorMatchStrength: 0.4,
+  inpaintMode: "inpaint" as "inpaint" | "outpaint",
 };
 
 
@@ -61,6 +59,7 @@ export default function HomePage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+  const [maskedImageDataUrl, setMaskedImageDataUrl] = useState<string | null>(null);
   const [job, setJob] = useState<JobRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [params, setParams] = useState(DEFAULT_PARAMS);
@@ -124,7 +123,14 @@ export default function HomePage() {
     setJob(null);
 
     const formData = new FormData();
-    formData.append("image", imageFile);
+    // Send the RGBA combined image (original + mask as alpha) as the primary image.
+    // ComfyUI's LoadImage reads the alpha channel as the inpaint mask.
+    if (maskedImageDataUrl) {
+      const rgbaBlob = await fetch(maskedImageDataUrl).then((res) => res.blob());
+      formData.append("image", rgbaBlob, "input.png");
+    } else {
+      formData.append("image", imageFile);
+    }
     const maskBlob = await fetch(maskDataUrl).then((res) => res.blob());
     formData.append("mask", maskBlob, "mask.png");
     Object.entries(params).forEach(([key, value]) => {
@@ -344,7 +350,11 @@ export default function HomePage() {
         />
       </div>
 
-      <MaskCanvas imageUrl={imagePreview} onMaskReady={setMaskDataUrl} />
+      <MaskCanvas
+        imageUrl={imagePreview}
+        onMaskReady={setMaskDataUrl}
+        onMaskedImageReady={setMaskedImageDataUrl}
+      />
 
       <div className="panel">
         <h2>Workflow Node Mapping</h2>
@@ -474,9 +484,36 @@ export default function HomePage() {
           />
           <span>Use workflow defaults for sampler parameters</span>
         </label>
+        <div className="row" style={{ alignItems: "center", gap: "0.75rem" }}>
+          <span>Mode:</span>
+          <label className="row" style={{ alignItems: "center", gap: "0.25rem" }}>
+            <input
+              type="radio"
+              name="inpaintMode"
+              value="inpaint"
+              checked={params.inpaintMode === "inpaint"}
+              onChange={() =>
+                setParams((prev) => ({ ...prev, inpaintMode: "inpaint" }))
+              }
+            />
+            <span>Inpaint</span>
+          </label>
+          <label className="row" style={{ alignItems: "center", gap: "0.25rem" }}>
+            <input
+              type="radio"
+              name="inpaintMode"
+              value="outpaint"
+              checked={params.inpaintMode === "outpaint"}
+              onChange={() =>
+                setParams((prev) => ({ ...prev, inpaintMode: "outpaint" }))
+              }
+            />
+            <span>Outpaint</span>
+          </label>
+        </div>
         <div className="grid">
           <div style={{ gridColumn: "1 / -1" }}>
-            <label>Positive Prompt</label>
+            <label>Prompt</label>
             <input
               className="input"
               type="text"
@@ -486,21 +523,6 @@ export default function HomePage() {
                 setParams((prev) => ({
                   ...prev,
                   positivePrompt: event.target.value,
-                }))
-              }
-            />
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label>Negative Prompt</label>
-            <input
-              className="input"
-              type="text"
-              value={params.negativePrompt}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  negativePrompt: event.target.value,
                 }))
               }
             />
@@ -525,6 +547,7 @@ export default function HomePage() {
             <input
               className="input"
               type="number"
+              min={1}
               value={params.steps}
               disabled={params.useWorkflowDefaults}
               onChange={(event) =>
@@ -536,11 +559,12 @@ export default function HomePage() {
             />
           </div>
           <div>
-            <label>CFG Scale</label>
+            <label>CFG</label>
             <input
               className="input"
               type="number"
               step={0.1}
+              min={0}
               value={params.cfgScale}
               disabled={params.useWorkflowDefaults}
               onChange={(event) =>
@@ -563,60 +587,26 @@ export default function HomePage() {
                 }))
               }
             >
+              <option value="euler_ancestral">euler_ancestral</option>
               <option value="euler">euler</option>
-              <option value="euler_a">euler_a</option>
               <option value="dpmpp_2m">dpmpp_2m</option>
               <option value="dpmpp_sde">dpmpp_sde</option>
             </select>
           </div>
           <div>
-            <label>Scheduler</label>
-            <select
-              value={params.scheduler}
-              disabled={params.useWorkflowDefaults}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  scheduler: event.target.value,
-                }))
-              }
-            >
-              <option value="normal">normal</option>
-              <option value="karras">karras</option>
-              <option value="simple">simple</option>
-            </select>
-          </div>
-          <div>
-            <label>Denoise</label>
+            <label>Color Match Strength</label>
             <input
               className="input"
               type="number"
               step={0.05}
               min={0}
               max={1}
-              value={params.denoise}
+              value={params.colorMatchStrength}
               disabled={params.useWorkflowDefaults}
               onChange={(event) =>
                 setParams((prev) => ({
                   ...prev,
-                  denoise: Number(event.target.value),
-                }))
-              }
-            />
-          </div>
-          <div>
-            <label>Mask Strength</label>
-            <input
-              className="input"
-              type="number"
-              step={0.05}
-              min={0}
-              max={1}
-              value={params.maskStrength}
-              onChange={(event) =>
-                setParams((prev) => ({
-                  ...prev,
-                  maskStrength: Number(event.target.value),
+                  colorMatchStrength: Number(event.target.value),
                 }))
               }
             />
