@@ -6,7 +6,6 @@ import sharp from "sharp";
 
 import {
   COMFYUI_BASE_URL,
-  COMFYUI_INPUT_DIR,
   COMFYUI_INPUT_DIR_WINDOWS,
   DATA_ROOT,
   MAX_PARALLEL_WORKFLOWS,
@@ -23,6 +22,7 @@ import { buildPatchedWorkflow, submitPatchedWorkflow, waitForWorkflow } from "./
 import { ensureJobStore, updateJobStatus, writeJob } from "./jobStore";
 import { runOpenAIInpainting } from "./openaiInpaintClient";
 import { DEFAULT_PATCH_TARGETS } from "./workflowPatcher";
+import { runYoloOnJob } from "./yoloRunner";
 
 /**
  * Composite a grayscale mask (white=inpaint, black=keep) as the alpha channel
@@ -247,6 +247,7 @@ async function runOpenAIJob(job: JobRecord, apiKey: string, model?: string): Pro
 
   // Spread runningJob (has startedAt) so the completed record retains it
   await updateJobStatus({ ...runningJob, outputs }, "completed");
+  void runYoloOnJob(job.id);
 }
 
 async function runJob(
@@ -344,4 +345,5 @@ async function runJob(
     },
     "completed",
   );
+  void runYoloOnJob(job.id);
 }

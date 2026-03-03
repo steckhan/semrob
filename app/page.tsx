@@ -8,12 +8,36 @@ import { buildPromptFromSelections } from "@/lib/oddCatalog";
 import ImageCompare from "./components/ImageCompare";
 import MaskCanvas from "./components/MaskCanvas";
 import OddDomainCard from "./components/OddDomainCard";
+import YoloCompareModal from "./components/YoloCompareModal";
 import OddFactorCard from "./components/OddFactorCard";
 
 type JobOutput = {
   workflowName: string;
   variationIndex: number;
   url: string;
+};
+
+type YoloBox = {
+  class: number;
+  confidence: number;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+};
+
+type YoloImageResult = {
+  annotatedUrl: string;
+  boxes: YoloBox[];
+};
+
+type YoloJobResults = {
+  status: "running" | "completed" | "failed";
+  model: string;
+  confThreshold: number;
+  original?: YoloImageResult;
+  outputs?: Record<string, YoloImageResult>;
+  error?: string;
 };
 
 type JobRecord = {
@@ -27,6 +51,7 @@ type JobRecord = {
   comfyBaseUrl?: string;
   error?: string;
   outputs: JobOutput[];
+  yoloResults?: YoloJobResults;
 };
 
 function formatDuration(startedAt?: string, completedAt?: string): string | null {
@@ -47,7 +72,7 @@ const OPENAI_API_KEY_KEY = "openaiApiKey";
 const OPENAI_MODEL_KEY = "openaiModel";
 const ODD_DOMAIN_KEY = "oddDomain";
 const ODD_CATALOG_CACHE_KEY = "oddCatalogCache";
-const DEFAULT_COMFYUI_BASE_URL = "http://172.26.224.1:8188";
+const DEFAULT_COMFYUI_BASE_URL = "http://localhost:8188";
 
 const OPENAI_MODELS = [
   { value: "gpt-image-1", label: "gpt-image-1" },
@@ -84,6 +109,11 @@ export default function HomePage() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiModel, setOpenaiModel] = useState<OpenAIModelValue>("gpt-image-1");
   const [compareUrl, setCompareUrl] = useState<string | null>(null);
+  const [yoloCompare, setYoloCompare] = useState<{
+    originalResult: YoloImageResult;
+    inpaintedResult: YoloImageResult;
+    inpaintedLabel: string;
+  } | null>(null);
   const [oddDomain, setOddDomain] = useState("");
   const [oddCatalog, setOddCatalog] = useState<OddCatalog | null>(null);
   const [selectedFactorIds, setSelectedFactorIds] = useState<Set<string>>(new Set());
@@ -288,9 +318,13 @@ export default function HomePage() {
     setIsTestingComfy(false);
   };
 
-  // Poll job status
+  // Poll job status (including while YOLO runs after completion)
   useEffect(() => {
-    if (!job || job.status === "completed" || job.status === "failed") return;
+    if (!job) return;
+    const yoloDone =
+      job.yoloResults?.status === "completed" ||
+      job.yoloResults?.status === "failed";
+    if ((job.status === "completed" && yoloDone) || job.status === "failed") return;
     const timer = window.setInterval(async () => {
       const response = await fetch(`/api/jobs/${job.id}`);
       if (!response.ok) return;
@@ -317,6 +351,15 @@ export default function HomePage() {
           originalUrl={imagePreview}
           inpaintedUrl={compareUrl}
           onClose={() => setCompareUrl(null)}
+        />
+      )}
+
+      {yoloCompare && (
+        <YoloCompareModal
+          originalResult={yoloCompare.originalResult}
+          inpaintedResult={yoloCompare.inpaintedResult}
+          inpaintedLabel={yoloCompare.inpaintedLabel}
+          onClose={() => setYoloCompare(null)}
         />
       )}
 
@@ -828,6 +871,82 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))}
+
+              {/* YOLO Detection card */}
+              {job.yoloResults && (
+                <div className="card">
+                  <div className="card-header">
+                    YOLO Detection
+                    {job.yoloResults.status === "running" && (
+                      <span style={{ color: "var(--orange)", fontWeight: 500 }}>⟳ Analyzing…</span>
+                    )}
+                  </div>
+                  <div className="card-body">
+                    {job.yoloResults.status === "failed" && (
+                      <p className="hint" style={{ color: "var(--red)" }}>
+                        {job.yoloResults.error ?? "YOLO detection failed."}
+                      </p>
+                    )}
+                    {job.yoloResults.status === "completed" && job.yoloResults.original && (
+                      <>
+                        {/* Original thumbnail */}
+                        <div>
+                          <div className="card-header" style={{ border: "none", padding: "0 0 6px 0", background: "none" }}>
+                            <span>Original</span>
+                            <span className={`metric-value ${job.yoloResults.original.boxes.length > 0 ? "negative" : "positive"}`} style={{ fontSize: "0.7rem" }}>
+                              {job.yoloResults.original.boxes.length} detection{job.yoloResults.original.boxes.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          {job.yoloResults.original.annotatedUrl && (
+                            <div className="gallery-item">
+                              <img
+                                src={job.yoloResults.original.annotatedUrl}
+                                alt="Original YOLO annotated"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Output thumbnails — each with a Compare button */}
+                        {job.yoloResults.outputs &&
+                          Object.entries(job.yoloResults.outputs).map(([key, result]) => {
+                            const count = result.boxes.length;
+                            return (
+                              <div key={key} style={{ marginTop: 8 }}>
+                                <div className="card-header" style={{ border: "none", padding: "0 0 6px 0", background: "none" }}>
+                                  <span style={{ fontSize: "0.62rem" }}>{key}</span>
+                                  <span className={`metric-value ${count === 0 ? "positive" : "negative"}`} style={{ fontSize: "0.7rem" }}>
+                                    {count} detection{count !== 1 ? "s" : ""}
+                                  </span>
+                                </div>
+                                {result.annotatedUrl && (
+                                  <div className="gallery-item">
+                                    <img
+                                      src={result.annotatedUrl}
+                                      alt={`${key} YOLO annotated`}
+                                    />
+                                    <button
+                                      className="gallery-compare-btn"
+                                      onClick={() =>
+                                        setYoloCompare({
+                                          originalResult: job.yoloResults!.original!,
+                                          inpaintedResult: result,
+                                          inpaintedLabel: key,
+                                        })
+                                      }
+                                    >
+                                      ⇄ Compare
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
