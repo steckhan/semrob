@@ -715,6 +715,118 @@ input[type="range"]:disabled {
   line-height: 1.4;
 }
 
+/* ── ODD Factor Catalog ── */
+.odd-dimension {
+  border-bottom: 1px solid var(--border);
+}
+
+.odd-dimension:last-child {
+  border-bottom: none;
+}
+
+.odd-dimension-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-dim);
+}
+
+.odd-dimension-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+  text-align: left;
+}
+
+.odd-dimension-count {
+  font-size: 0.58rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: white;
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.odd-chevron {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.odd-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.odd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 0 8px;
+}
+
+.odd-chip {
+  padding: 3px 9px;
+  border-radius: 14px;
+  font-size: 0.66rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-dim);
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.odd-chip:hover:not(:disabled) {
+  border-color: var(--border-light);
+  color: var(--text);
+}
+
+.odd-chip.selected {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: var(--accent);
+  color: var(--accent-light);
+  font-weight: 600;
+}
+
+.odd-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.odd-clear-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.odd-clear-btn:hover:not(:disabled) {
+  color: var(--red);
+}
+
+.odd-clear-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar {
   width: 6px;

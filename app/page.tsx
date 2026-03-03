@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import type { OddCatalog } from "@/lib/oddCatalog";
+import { buildPromptFromSelections } from "@/lib/oddCatalog";
 
 import ImageCompare from "./components/ImageCompare";
 import MaskCanvas from "./components/MaskCanvas";
+import OddDomainCard from "./components/OddDomainCard";
+import OddFactorCard from "./components/OddFactorCard";
 
 type JobOutput = {
   workflowName: string;
@@ -60,6 +65,8 @@ const COMFYUI_LOCAL_STORAGE_KEY = "comfyBaseUrl";
 const INPAINT_MODE_KEY = "inpaintMode";
 const OPENAI_API_KEY_KEY = "openaiApiKey";
 const OPENAI_MODEL_KEY = "openaiModel";
+const ODD_DOMAIN_KEY = "oddDomain";
+const ODD_CATALOG_CACHE_KEY = "oddCatalogCache";
 const DEFAULT_COMFYUI_BASE_URL = "http://172.26.224.1:8188";
 
 const OPENAI_MODELS = [
@@ -78,7 +85,7 @@ const DEFAULT_PARAMS = {
   maskStrength: 1,
   variationCount: 4,
   useWorkflowDefaults: false,
-  positivePrompt: "wristwatch, metal casing, worn look",
+  positivePrompt: "",
   negativePrompt: "",
 };
 
@@ -98,6 +105,12 @@ export default function HomePage() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiModel, setOpenaiModel] = useState<OpenAIModelValue>("gpt-image-1");
   const [compareUrl, setCompareUrl] = useState<string | null>(null);
+  const [oddDomain, setOddDomain] = useState("");
+  const [oddCatalog, setOddCatalog] = useState<OddCatalog | null>(null);
+  const [selectedFactorIds, setSelectedFactorIds] = useState<Set<string>>(new Set());
+  const [isGeneratingOdd, setIsGeneratingOdd] = useState(false);
+  const [isCustomPrompt, setIsCustomPrompt] = useState(false);
+  const [oddError, setOddError] = useState<string | null>(null);
 
   // Load persisted settings
   useEffect(() => {
@@ -113,6 +126,21 @@ export default function HomePage() {
     const storedModel = window.localStorage.getItem(OPENAI_MODEL_KEY);
     if (storedModel === "gpt-image-1" || storedModel === "gpt-image-1.5") {
       setOpenaiModel(storedModel);
+    }
+
+    const storedDomain = window.localStorage.getItem(ODD_DOMAIN_KEY);
+    if (storedDomain) {
+      setOddDomain(storedDomain);
+      try {
+        const cache = JSON.parse(
+          window.localStorage.getItem(ODD_CATALOG_CACHE_KEY) ?? "{}",
+        ) as Record<string, OddCatalog>;
+        if (cache[storedDomain]) {
+          setOddCatalog(cache[storedDomain]);
+        }
+      } catch {
+        // ignore corrupt cache
+      }
     }
   }, []);
 
@@ -135,6 +163,75 @@ export default function HomePage() {
     };
     void fetchMappings();
   }, []);
+
+  // Generate ODD factors from domain description
+  const generateOddCatalog = useCallback(async () => {
+    const domain = oddDomain.trim();
+    if (!domain) return;
+
+    // Check localStorage cache first
+    try {
+      const cache = JSON.parse(
+        window.localStorage.getItem(ODD_CATALOG_CACHE_KEY) ?? "{}",
+      ) as Record<string, OddCatalog>;
+      if (cache[domain]) {
+        setOddCatalog(cache[domain]);
+        setSelectedFactorIds(new Set());
+        setIsCustomPrompt(false);
+        setOddError(null);
+        return;
+      }
+    } catch {
+      // ignore corrupt cache
+    }
+
+    setIsGeneratingOdd(true);
+    setOddError(null);
+
+    try {
+      const response = await fetch("/api/odd/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain, apiKey: openaiApiKey.trim() || undefined }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        setOddError(payload.error ?? "Failed to generate factors.");
+        setIsGeneratingOdd(false);
+        return;
+      }
+
+      const catalog = (await response.json()) as OddCatalog;
+      setOddCatalog(catalog);
+      setSelectedFactorIds(new Set());
+      setIsCustomPrompt(false);
+
+      // Cache in localStorage
+      try {
+        const cache = JSON.parse(
+          window.localStorage.getItem(ODD_CATALOG_CACHE_KEY) ?? "{}",
+        ) as Record<string, OddCatalog>;
+        cache[domain] = catalog;
+        window.localStorage.setItem(ODD_CATALOG_CACHE_KEY, JSON.stringify(cache));
+      } catch {
+        // ignore storage errors
+      }
+
+      window.localStorage.setItem(ODD_DOMAIN_KEY, domain);
+    } catch (error) {
+      setOddError(error instanceof Error ? error.message : "Network error.");
+    } finally {
+      setIsGeneratingOdd(false);
+    }
+  }, [oddDomain, openaiApiKey]);
+
+  // Auto-generate prompt from selected ODD factors
+  useEffect(() => {
+    if (isCustomPrompt || !oddCatalog) return;
+    const prompt = buildPromptFromSelections(oddCatalog, selectedFactorIds);
+    setParams((p) => ({ ...p, positivePrompt: prompt }));
+  }, [selectedFactorIds, oddCatalog, isCustomPrompt]);
 
   const groupedOutputs = useMemo(() => {
     if (!job?.outputs) return {} as Record<string, JobOutput[]>;
@@ -456,6 +553,26 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* ODD Domain */}
+          <OddDomainCard
+            domain={oddDomain}
+            onDomainChange={setOddDomain}
+            onGenerate={generateOddCatalog}
+            isGenerating={isGeneratingOdd}
+          />
+          {oddError && (
+            <p className="hint" style={{ color: "var(--red)" }}>
+              {oddError}
+            </p>
+          )}
+
+          {/* ODD Factors */}
+          <OddFactorCard
+            catalog={oddCatalog}
+            selectedFactorIds={selectedFactorIds}
+            onSelectionChange={setSelectedFactorIds}
+          />
+
           {/* Parameters */}
           <div className="card">
             <div className="card-header">Parameters</div>
@@ -491,10 +608,20 @@ export default function HomePage() {
                   type="text"
                   value={params.positivePrompt}
                   disabled={inpaintMode === "local" && params.useWorkflowDefaults}
-                  onChange={(e) =>
-                    setParams((p) => ({ ...p, positivePrompt: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setParams((p) => ({ ...p, positivePrompt: e.target.value }));
+                    setIsCustomPrompt(true);
+                  }}
                 />
+                {isCustomPrompt && oddCatalog && (
+                  <button
+                    className="odd-clear-btn"
+                    style={{ marginTop: 3, fontSize: "0.6rem" }}
+                    onClick={() => setIsCustomPrompt(false)}
+                  >
+                    Use ODD factors
+                  </button>
+                )}
               </div>
 
               <div className="slider-row">
