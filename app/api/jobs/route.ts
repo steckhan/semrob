@@ -7,13 +7,13 @@ import { loadWorkflowBundle } from "@/lib/workflowLoader";
 
 const DEFAULT_PARAMS: InpaintParams = {
   seed: 42,
-  steps: 28,
-  cfgScale: 8,
-  sampler: "euler",
+  steps: 4,
+  cfgScale: 1,
+  sampler: "euler_ancestral",
   scheduler: "normal",
   denoise: 1,
   maskStrength: 1,
-  variationCount: 4,
+  variationCount: 1,
   useWorkflowDefaults: false,
   positivePrompt: "wristwatch, metal casing, worn look",
   negativePrompt: "",
@@ -118,10 +118,16 @@ export async function POST(request: Request) {
     ),
   };
 
-  const { workflows, mappings } = await loadWorkflowBundle();
+  const workflowName = String(formData.get("workflowName") ?? "").trim();
+
+  const { workflows: allWorkflows, mappings } = await loadWorkflowBundle();
+  const workflows = workflowName
+    ? allWorkflows.filter((w) => w.name === workflowName)
+    : allWorkflows;
+
   if (inpaintMode === "local" && workflows.length === 0) {
     return NextResponse.json(
-      { error: "No workflows found in /workflows." },
+      { error: workflowName ? `Workflow "${workflowName}" not found.` : "No workflows found in /workflows." },
       { status: 500 },
     );
   }

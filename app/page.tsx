@@ -40,26 +40,6 @@ function formatDuration(startedAt?: string, completedAt?: string): string | null
   return `${m}m ${s}s`;
 }
 
-type WorkflowMapping = {
-  workflowName: string;
-  targets: {
-    imageNodeId: string;
-    imageInputKey?: string;
-    maskNodeId: string;
-    maskInputKey?: string;
-    paramsNodeId: string;
-  };
-};
-
-type WorkflowResponse = {
-  workflows: WorkflowMapping[];
-};
-
-type MappingIssue = {
-  workflowName: string;
-  field: "imageNodeId" | "maskNodeId" | "paramsNodeId";
-  message: string;
-};
 
 const COMFYUI_LOCAL_STORAGE_KEY = "comfyBaseUrl";
 const INPAINT_MODE_KEY = "inpaintMode";
@@ -77,13 +57,13 @@ type OpenAIModelValue = (typeof OPENAI_MODELS)[number]["value"];
 
 const DEFAULT_PARAMS = {
   seed: 42,
-  steps: 28,
-  cfgScale: 7,
-  sampler: "euler",
+  steps: 4,
+  cfgScale: 1,
+  sampler: "euler_ancestral",
   scheduler: "normal",
   denoise: 1,
   maskStrength: 1,
-  variationCount: 4,
+  variationCount: 1,
   useWorkflowDefaults: false,
   positivePrompt: "",
   negativePrompt: "",
@@ -96,7 +76,6 @@ export default function HomePage() {
   const [job, setJob] = useState<JobRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [params, setParams] = useState(DEFAULT_PARAMS);
-  const [workflowMappings, setWorkflowMappings] = useState<WorkflowMapping[]>([]);
   const [comfyBaseUrl, setComfyBaseUrl] = useState(DEFAULT_COMFYUI_BASE_URL);
   const [isTestingComfy, setIsTestingComfy] = useState(false);
   const [comfyTestMessage, setComfyTestMessage] = useState<string | null>(null);
@@ -144,6 +123,7 @@ export default function HomePage() {
     }
   }, []);
 
+
   useEffect(() => {
     if (!imageFile) {
       setImagePreview(null);
@@ -154,15 +134,6 @@ export default function HomePage() {
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
 
-  useEffect(() => {
-    const fetchMappings = async () => {
-      const response = await fetch("/api/workflows");
-      if (!response.ok) return;
-      const payload = (await response.json()) as WorkflowResponse;
-      setWorkflowMappings(payload.workflows);
-    };
-    void fetchMappings();
-  }, []);
 
   // Generate ODD factors from domain description
   const generateOddCatalog = useCallback(async () => {
@@ -329,61 +300,6 @@ export default function HomePage() {
     return () => window.clearInterval(timer);
   }, [job]);
 
-  const updateMapping = (
-    workflowName: string,
-    updates: Partial<WorkflowMapping["targets"]>,
-  ) => {
-    setWorkflowMappings((current) =>
-      current.map((m) =>
-        m.workflowName === workflowName
-          ? { ...m, targets: { ...m.targets, ...updates } }
-          : m,
-      ),
-    );
-  };
-
-  const validateMappings = (mappings: WorkflowMapping[]) => {
-    const errors: string[] = [];
-    mappings.forEach((m) => {
-      if (!m.targets.imageNodeId.trim())
-        errors.push(`${m.workflowName}: image node ID required.`);
-      if (!m.targets.maskNodeId.trim())
-        errors.push(`${m.workflowName}: mask node ID required.`);
-      if (!m.targets.paramsNodeId.trim())
-        errors.push(`${m.workflowName}: params node ID required.`);
-    });
-    return errors;
-  };
-
-  const mappingIssues = useMemo(() => {
-    const issues: MappingIssue[] = [];
-    workflowMappings.forEach((m) => {
-      if (!m.targets.imageNodeId.trim())
-        issues.push({ workflowName: m.workflowName, field: "imageNodeId", message: "" });
-      if (!m.targets.maskNodeId.trim())
-        issues.push({ workflowName: m.workflowName, field: "maskNodeId", message: "" });
-      if (!m.targets.paramsNodeId.trim())
-        issues.push({ workflowName: m.workflowName, field: "paramsNodeId", message: "" });
-    });
-    return issues;
-  }, [workflowMappings]);
-
-  const mappingErrors = useMemo(
-    () => validateMappings(workflowMappings),
-    [workflowMappings],
-  );
-
-  const hasFieldIssue = (wn: string, field: MappingIssue["field"]) =>
-    mappingIssues.some((i) => i.workflowName === wn && i.field === field);
-
-  const saveMappings = async () => {
-    if (mappingErrors.length > 0) return;
-    await fetch("/api/workflows", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workflows: workflowMappings }),
-    });
-  };
 
   const handleImageChange = (file: File | undefined) => {
     setImageFile(file ?? null);
@@ -672,38 +588,6 @@ export default function HomePage() {
                   </div>
 
                   <div className="slider-row">
-                    <label className="slider-label">CFG Scale</label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={20}
-                      step={0.5}
-                      value={params.cfgScale}
-                      disabled={params.useWorkflowDefaults}
-                      onChange={(e) =>
-                        setParams((p) => ({ ...p, cfgScale: Number(e.target.value) }))
-                      }
-                    />
-                    <span className="slider-val">{params.cfgScale}</span>
-                  </div>
-
-                  <div className="slider-row">
-                    <label className="slider-label">Denoise</label>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={params.denoise}
-                      disabled={params.useWorkflowDefaults}
-                      onChange={(e) =>
-                        setParams((p) => ({ ...p, denoise: Number(e.target.value) }))
-                      }
-                    />
-                    <span className="slider-val">{params.denoise.toFixed(2)}</span>
-                  </div>
-
-                  <div className="slider-row">
                     <label className="slider-label">Mask Str.</label>
                     <input
                       type="range"
@@ -731,6 +615,7 @@ export default function HomePage() {
                           setParams((p) => ({ ...p, sampler: e.target.value }))
                         }
                       >
+                        <option value="euler_ancestral">euler_ancestral</option>
                         <option value="euler">euler</option>
                         <option value="euler_a">euler_a</option>
                         <option value="dpmpp_2m">dpmpp_2m</option>
@@ -770,86 +655,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Workflow mapping — local only */}
-          {inpaintMode === "local" && (
-            <div className="card">
-              <div className="card-header">
-                Workflow Mapping
-                {mappingErrors.length > 0 && (
-                  <span style={{ color: "var(--red)", fontSize: "0.62rem" }}>
-                    ⚠ {mappingErrors.length}
-                  </span>
-                )}
-              </div>
-              <div className="card-body">
-                {workflowMappings.length === 0 ? (
-                  <p className="hint">No workflows detected.</p>
-                ) : (
-                  workflowMappings.map((mapping) => (
-                    <div
-                      key={mapping.workflowName}
-                      style={{ display: "flex", flexDirection: "column", gap: 7 }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "0.7rem",
-                          fontWeight: 600,
-                          color: "var(--accent-light)",
-                        }}
-                      >
-                        {mapping.workflowName}
-                      </span>
-                      <div className="params-grid">
-                        <div>
-                          <label>Image Node</label>
-                          <input
-                            className={`input${hasFieldIssue(mapping.workflowName, "imageNodeId") ? " input-error" : ""}`}
-                            value={mapping.targets.imageNodeId}
-                            onChange={(e) =>
-                              updateMapping(mapping.workflowName, {
-                                imageNodeId: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label>Mask Node</label>
-                          <input
-                            className={`input${hasFieldIssue(mapping.workflowName, "maskNodeId") ? " input-error" : ""}`}
-                            value={mapping.targets.maskNodeId}
-                            onChange={(e) =>
-                              updateMapping(mapping.workflowName, {
-                                maskNodeId: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label>Params Node</label>
-                        <input
-                          className={`input${hasFieldIssue(mapping.workflowName, "paramsNodeId") ? " input-error" : ""}`}
-                          value={mapping.targets.paramsNodeId}
-                          onChange={(e) =>
-                            updateMapping(mapping.workflowName, {
-                              paramsNodeId: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
-                <button
-                  className="btn btn-outline btn-full btn-sm"
-                  onClick={saveMappings}
-                  disabled={workflowMappings.length === 0 || mappingErrors.length > 0}
-                >
-                  Save Mapping
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Run button */}
           <button

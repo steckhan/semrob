@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 
+import sharp from "sharp";
+
 import {
   COMFYUI_BASE_URL,
   COMFYUI_INPUT_DIR,
@@ -17,91 +19,100 @@ import type {
   WorkflowMapping,
 } from "./types";
 import { runWithConcurrency } from "./concurrency";
-import { buildPatchedWorkflow, pollWorkflow, submitPatchedWorkflow } from "./comfyuiClient";
+import { buildPatchedWorkflow, submitPatchedWorkflow, waitForWorkflow } from "./comfyuiClient";
 import { ensureJobStore, updateJobStatus, writeJob } from "./jobStore";
 import { runOpenAIInpainting } from "./openaiInpaintClient";
 import { DEFAULT_PATCH_TARGETS } from "./workflowPatcher";
 
+/**
+ * Composite a grayscale mask (white=inpaint, black=keep) as the alpha channel
+ * of the image. The resulting RGBA PNG has:
+ *   - RGB: original image pixels
+ *   - Alpha: inverted mask (white mask area → alpha=0 transparent, black → alpha=255 opaque)
+ *
+ * ComfyUI's LoadImage node extracts alpha=0 regions as the inpaint mask.
+ */
+async function compositeAlphaMask(
+  imageBuffer: Buffer,
+  maskBuffer: Buffer,
+): Promise<Buffer> {
+  // Get image dimensions
+  const meta = await sharp(imageBuffer).metadata();
+  const width = meta.width ?? 512;
+  const height = meta.height ?? 512;
+
+  // Extract mask as grayscale, flatten to remove any alpha, resize to match image.
+  // The canvas exports a black-background PNG with white brush strokes.
+  // Flatten ensures transparent canvas pixels become black (0 = keep area).
+  const maskGray = await sharp(maskBuffer)
+    .flatten({ background: { r: 0, g: 0, b: 0 } })
+    .resize(width, height, { fit: "fill" })
+    .grayscale()
+    .raw()
+    .toBuffer();
+
+  // Flatten image to opaque RGB — removes any existing alpha channel so it
+  // cannot accidentally contribute transparent pixels to the composite
+  const imageRgb = await sharp(imageBuffer)
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+
+  // Build RGBA buffer: image RGB + inverted mask as alpha
+  // mask white (255) = inpaint area → alpha=0 (transparent) so LoadImage sees it as the mask
+  // mask black (0) = keep area → alpha=255 (opaque)
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    rgba[i * 4 + 0] = imageRgb[i * 3 + 0]; // R (3 channels after removeAlpha)
+    rgba[i * 4 + 1] = imageRgb[i * 3 + 1]; // G
+    rgba[i * 4 + 2] = imageRgb[i * 3 + 2]; // B
+    rgba[i * 4 + 3] = 255 - maskGray[i];    // A: invert mask
+  }
+
+  return sharp(rgba, { raw: { width, height, channels: 4 } })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * Returns true when the workflow mapping uses the same node+key for image and
+ * mask — i.e. the mask must be embedded as the alpha channel of the image.
+ */
+function isAlphaMaskWorkflow(mapping: WorkflowMapping | undefined): boolean {
+  if (!mapping) return false;
+  const t = mapping.targets;
+  const imageKey = t.imageInputKey ?? "image";
+  const maskKey = t.maskInputKey ?? "image";
+  return t.maskNodeId === t.imageNodeId && maskKey === imageKey;
+}
+
 const UPLOADS_DIR = path.join(DATA_ROOT, "uploads");
 const OUTPUTS_DIR = path.join(DATA_ROOT, "outputs");
 
-async function findComfyOutputPath(
+function buildComfyViewUrl(
   comfyBaseUrl: string,
-  promptId: string,
   filename: string,
-  subfolder: string | undefined,
-  imageType: string | undefined,
-): Promise<string> {
-  if (subfolder && subfolder.length > 0) {
-    return `${comfyBaseUrl}/view?filename=${encodeURIComponent(
-      filename,
-    )}&subfolder=${encodeURIComponent(subfolder)}&type=${encodeURIComponent(
-      imageType ?? "output",
-    )}`;
-  }
-
-  const response = await fetch(`${comfyBaseUrl}/history/${promptId}`);
-  if (!response.ok) {
-    throw new Error("Failed to locate ComfyUI output.");
-  }
-
-  const payload = (await response.json()) as Record<string, any>;
-  const record = payload[promptId];
-  if (!record?.outputs) {
-    throw new Error("ComfyUI output not available yet.");
-  }
-
-  const match = Object.values(record.outputs)
-    .flatMap((output: any) => output.images ?? [])
-    .find((image: any) => image.filename === filename);
-
-  if (!match) {
-    throw new Error("ComfyUI output not available yet.");
-  }
-
-  const subfolderValue = match.subfolder ?? "";
-
-  return `${comfyBaseUrl}/view?filename=${encodeURIComponent(
-    filename,
-  )}&subfolder=${encodeURIComponent(subfolderValue)}&type=${encodeURIComponent(
-    imageType ?? "output",
-  )}`;
+  subfolder: string,
+  imageType: string,
+): string {
+  return `${comfyBaseUrl}/view?filename=${encodeURIComponent(filename)}&subfolder=${encodeURIComponent(subfolder)}&type=${encodeURIComponent(imageType)}`;
 }
 
 async function copyOutputToLocal(
   comfyBaseUrl: string,
-  promptId: string,
   filename: string,
-  subfolder: string | undefined,
-  imageType: string | undefined,
+  subfolder: string,
+  imageType: string,
   localPath: string,
-  attempts = 8,
-  delayMs = 750,
 ): Promise<void> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const url = await findComfyOutputPath(
-        comfyBaseUrl,
-        promptId,
-        filename,
-        subfolder,
-        imageType,
-      );
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to fetch ComfyUI output.");
-      }
-
-      const buffer = Buffer.from(await response.arrayBuffer());
-      await fs.writeFile(localPath, buffer);
-      return;
-    } catch (error) {
-      lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
+  const url = buildComfyViewUrl(comfyBaseUrl, filename, subfolder, imageType);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ComfyUI output: ${response.status}`);
   }
-  throw lastError;
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await fs.writeFile(localPath, buffer);
 }
 
 export type CreateJobInput = {
@@ -143,20 +154,25 @@ export async function createJob({
   let comfyImagePathWindows = "";
   let comfyMaskPathWindows = "";
   if (inpaintMode !== "api") {
-    const comfyJobDir = path.join(COMFYUI_INPUT_DIR, jobId);
+    const comfyJobDir = path.join(COMFYUI_INPUT_DIR_WINDOWS, jobId);
     const comfyImagePath = path.join(comfyJobDir, "input.png");
     const comfyMaskPath = path.join(comfyJobDir, "mask.png");
 
     await fs.mkdir(comfyJobDir, { recursive: true });
+
+    // If any workflow needs alpha-mask mode, write a composited image too
+    const needsAlpha = mappings.some(isAlphaMaskWorkflow);
+    if (needsAlpha) {
+      const composited = await compositeAlphaMask(imageBuffer, maskBuffer);
+      await fs.writeFile(path.join(comfyJobDir, "input_alpha.png"), composited);
+    }
+
     await fs.writeFile(comfyImagePath, imageBuffer);
     await fs.writeFile(comfyMaskPath, maskBuffer);
 
-    comfyImagePathWindows = path
-      .join(COMFYUI_INPUT_DIR_WINDOWS, jobId, "input.png")
-      .replace(/\\/g, "/");
-    comfyMaskPathWindows = path
-      .join(COMFYUI_INPUT_DIR_WINDOWS, jobId, "mask.png")
-      .replace(/\\/g, "/");
+    // ComfyUI LoadImage expects paths relative to its input directory
+    comfyImagePathWindows = `${jobId}/input.png`;
+    comfyMaskPathWindows = `${jobId}/mask.png`;
   }
 
   const job: JobRecord = {
@@ -257,58 +273,65 @@ async function runJob(
   const outputs: JobOutput[] = [];
   const promptIds: Record<string, string> = {};
 
-  await runWithConcurrency(workflows, MAX_PARALLEL_WORKFLOWS, async (workflow) => {
+  const variationCount = runningJob.params.variationCount ?? 1;
+  const baseSeed = runningJob.params.seed;
+
+  // Build all (workflow, variationIndex) pairs
+  const workflowVariations: Array<{ workflow: (typeof workflows)[number]; variationIndex: number }> = [];
+  for (const workflow of workflows) {
+    for (let v = 0; v < variationCount; v++) {
+      workflowVariations.push({ workflow, variationIndex: v });
+    }
+  }
+
+  await runWithConcurrency(workflowVariations, MAX_PARALLEL_WORKFLOWS, async ({ workflow, variationIndex }) => {
     const mapping = mappings.find((entry) => entry.workflowName === workflow.name);
+    const variationParams = { ...runningJob.params, seed: baseSeed + variationIndex };
+
+    // For alpha-mask workflows the image already has the mask composited into
+    // its alpha channel; use the pre-written input_alpha.png instead of input.png
+    const effectiveImagePath = isAlphaMaskWorkflow(mapping)
+      ? imagePath.replace(/\/input\.png$/, "/input_alpha.png")
+      : imagePath;
+
     const patchedWorkflow = buildPatchedWorkflow(
       {
         workflowName: workflow.name,
         workflowJson: workflow.json,
         targets: mapping?.targets ?? DEFAULT_PATCH_TARGETS,
       },
-      imagePath,
+      effectiveImagePath,
       maskPath,
-      runningJob.params,
+      variationParams,
     );
     const { promptId } = await submitPatchedWorkflow(patchedWorkflow, comfyBaseUrl);
-    promptIds[workflow.name] = promptId;
-    const patchedWorkflows = {
-      ...(runningJob.patchedWorkflows ?? {}),
-      [workflow.name]: patchedWorkflow,
-    };
-    await writeJob({ ...runningJob, promptIds, patchedWorkflows });
+    promptIds[`${workflow.name}:${variationIndex}`] = promptId;
+    await writeJob({ ...runningJob, promptIds });
 
-    let completed = false;
-    while (!completed) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const pollOutputs = await pollWorkflow(promptId, comfyBaseUrl);
-      if (pollOutputs.length > 0) {
-        for (const output of pollOutputs) {
-          const filename = output.filename ?? path.basename(output.filePath);
-          const subfolder = output.subfolder ?? "";
-          const localDir = path.join(OUTPUTS_DIR, runningJob.id, workflow.name);
-          const localPath = path.join(localDir, filename);
-          await fs.mkdir(localDir, { recursive: true });
-          await copyOutputToLocal(
-            comfyBaseUrl,
-            promptId,
-            filename,
-            output.subfolder,
-            output.imageType,
-            localPath,
-          );
+    const pollOutputs = await waitForWorkflow(promptId, comfyBaseUrl);
+    for (const output of pollOutputs) {
+      const filename = output.filename ?? path.basename(output.filePath);
+      const localDir = path.join(OUTPUTS_DIR, runningJob.id, workflow.name);
+      const localPath = path.join(localDir, filename);
+      await fs.mkdir(localDir, { recursive: true });
+      await copyOutputToLocal(
+        comfyBaseUrl,
+        filename,
+        output.subfolder ?? "",
+        output.imageType ?? "output",
+        localPath,
+      );
 
-          outputs.push({
-            ...output,
-            workflowName: workflow.name,
-            filePath: localPath,
-            source: "local",
-            url: `/api/jobs/${runningJob.id}/files/${encodeURIComponent(
-              workflow.name,
-            )}/${encodeURIComponent(filename)}`,
-          });
-        }
-        completed = true;
-      }
+      outputs.push({
+        ...output,
+        workflowName: workflow.name,
+        variationIndex,
+        filePath: localPath,
+        source: "local",
+        url: `/api/jobs/${runningJob.id}/files/${encodeURIComponent(
+          workflow.name,
+        )}/${encodeURIComponent(filename)}`,
+      });
     }
   });
 

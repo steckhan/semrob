@@ -1,14 +1,23 @@
 [
   {
-    "workflowName": "flux_fill_inpaint",
+    "workflowName": "flux2_klein",
     "targets": {
-      "imageNodeId": "17",
+      "imageNodeId": "76",
       "imageInputKey": "image",
-      "maskNodeId": "38",
-      "maskInputKey": "mask",
-      "paramsNodeId": "3",
-      "positivePromptNodeId": "23",
-      "negativePromptNodeId": "7"
+      "maskNodeId": "76",
+      "maskInputKey": "image",
+      "paramsNodeId": "108",
+      "seedNodeId": "99",
+      "seedInputKey": "seed",
+      "stepsNodeId": "116",
+      "stepsInputKey": "steps",
+      "cfgNodeId": "115",
+      "cfgInputKey": "cfg",
+      "samplerNameNodeId": "107",
+      "samplerNameInputKey": "sampler_name",
+      "schedulerNodeId": "__none__",
+      "denoiseNodeId": "__none__",
+      "positivePromptNodeId": "149"
     }
   }
 ]
