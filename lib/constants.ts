@@ -37,6 +37,7 @@ function normalizeBaseUrl(value: string): string {
 export const COMFYUI_BASE_URL = normalizeBaseUrl(
   process.env.COMFYUI_BASE_URL ?? "http://172.26.224.1:8188",
 );
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 export const MAX_PARALLEL_WORKFLOWS = 2;
 export const DATA_ROOT = path.join(PROJECT_ROOT, "data");
 export const WORKFLOWS_DIR = path.join(PROJECT_ROOT, "workflows");

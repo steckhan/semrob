@@ -36,10 +36,14 @@ export async function updateJobStatus(
   status: JobStatus,
   error?: string,
 ): Promise<JobRecord> {
+  const now = new Date().toISOString();
   const updated: JobRecord = {
     ...job,
     status,
     error: error ?? job.error,
+    startedAt: status === "running" ? (job.startedAt ?? now) : job.startedAt,
+    completedAt:
+      status === "completed" || status === "failed" ? now : job.completedAt,
   };
   await writeJob(updated);
   return updated;

@@ -62,7 +62,11 @@ export type JobOutput = {
 export type JobRecord = {
   id: string;
   createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
   status: JobStatus;
+  inpaintMode?: "local" | "api";
+  openaiModel?: string;
   comfyBaseUrl?: string;
   params: InpaintParams;
   workflows: string[];
