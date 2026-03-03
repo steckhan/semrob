@@ -60,6 +60,22 @@ function inferTargets(workflow: WorkflowJson): PatchTargets | null {
   };
 }
 
+function patchParam(
+  patched: WorkflowJson,
+  targets: PatchTargets,
+  nodeIdKey: keyof PatchTargets,
+  inputKeyKey: keyof PatchTargets,
+  defaultInputKey: string,
+  value: unknown,
+): void {
+  const nodeId = (targets[nodeIdKey] as string | undefined) ?? targets.paramsNodeId;
+  const inputKey = (targets[inputKeyKey] as string | undefined) ?? defaultInputKey;
+  const node = patched[nodeId];
+  if (node?.inputs) {
+    node.inputs[inputKey] = value;
+  }
+}
+
 export type WorkflowPatchInput = {
   workflow: WorkflowJson;
   imagePath: string;
@@ -123,34 +139,44 @@ export function patchWorkflow({
 
   imageNode.inputs[imageKey] = imagePath;
 
-  const currentMaskValue = maskNode.inputs[maskKey];
-  const isLinkedMaskInput =
-    Array.isArray(currentMaskValue) &&
-    currentMaskValue.length === 2 &&
-    (typeof currentMaskValue[0] === "string" ||
-      typeof currentMaskValue[0] === "number") &&
-    typeof currentMaskValue[1] === "number";
+  // If image and mask map to the same node+key, the mask is embedded as the
+  // alpha channel of the image (e.g. flux2_klein's single LoadImage node).
+  // jobRunner already composited the mask into the image alpha, so skip the
+  // mask write here to avoid overwriting the image path with the mask path.
+  const isSameNodeAndKey =
+    resolvedTargets.maskNodeId === resolvedTargets.imageNodeId &&
+    maskKey === imageKey;
 
-  if (isLinkedMaskInput) {
-    const numericIds = Object.keys(patched)
-      .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id));
-    const nextNodeId = String((Math.max(0, ...numericIds) + 1));
+  if (!isSameNodeAndKey) {
+    const currentMaskValue = maskNode.inputs[maskKey];
+    const isLinkedMaskInput =
+      Array.isArray(currentMaskValue) &&
+      currentMaskValue.length === 2 &&
+      (typeof currentMaskValue[0] === "string" ||
+        typeof currentMaskValue[0] === "number") &&
+      typeof currentMaskValue[1] === "number";
 
-    patched[nextNodeId] = {
-      inputs: {
-        image: maskPath,
-        channel: "red",
-      },
-      class_type: "LoadImageMask",
-      _meta: {
-        title: "Load Image (Mask)",
-      },
-    };
+    if (isLinkedMaskInput) {
+      const numericIds = Object.keys(patched)
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id));
+      const nextNodeId = String((Math.max(0, ...numericIds) + 1));
 
-    maskNode.inputs[maskKey] = [nextNodeId, 0];
-  } else {
-    maskNode.inputs[maskKey] = maskPath;
+      patched[nextNodeId] = {
+        inputs: {
+          image: maskPath,
+          channel: "red",
+        },
+        class_type: "LoadImageMask",
+        _meta: {
+          title: "Load Image (Mask)",
+        },
+      };
+
+      maskNode.inputs[maskKey] = [nextNodeId, 0];
+    } else {
+      maskNode.inputs[maskKey] = maskPath;
+    }
   }
 
   if (!paramsNode.inputs) {
@@ -158,12 +184,12 @@ export function patchWorkflow({
   }
 
   if (!params.useWorkflowDefaults) {
-    paramsNode.inputs.seed = params.seed;
-    paramsNode.inputs.steps = params.steps;
-    paramsNode.inputs.cfg = params.cfgScale;
-    paramsNode.inputs.sampler_name = params.sampler;
-    paramsNode.inputs.scheduler = params.scheduler;
-    paramsNode.inputs.denoise = params.denoise;
+    patchParam(patched, resolvedTargets, "seedNodeId", "seedInputKey", "seed", params.seed);
+    patchParam(patched, resolvedTargets, "stepsNodeId", "stepsInputKey", "steps", params.steps);
+    patchParam(patched, resolvedTargets, "cfgNodeId", "cfgInputKey", "cfg", params.cfgScale);
+    patchParam(patched, resolvedTargets, "samplerNameNodeId", "samplerNameInputKey", "sampler_name", params.sampler);
+    patchParam(patched, resolvedTargets, "schedulerNodeId", "schedulerInputKey", "scheduler", params.scheduler);
+    patchParam(patched, resolvedTargets, "denoiseNodeId", "denoiseInputKey", "denoise", params.denoise);
 
     if (positivePromptNode?.inputs) {
       positivePromptNode.inputs.text = params.positivePrompt;
@@ -172,9 +198,6 @@ export function patchWorkflow({
       negativePromptNode.inputs.text = params.negativePrompt;
     }
   }
-
-  paramsNode.inputs.mask_strength = params.maskStrength;
-  paramsNode.inputs.variation_count = params.variationCount;
 
   return patched;
 }

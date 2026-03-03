@@ -8,14 +8,15 @@ import { readJob } from "@/lib/jobStore";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string; path: string[] } },
+  { params }: { params: Promise<{ id: string; path: string[] }> },
 ) {
-  const job = await readJob(params.id);
+  const { id, path: filePath } = await params;
+  const job = await readJob(id);
   if (!job) {
     return NextResponse.json({ error: "Job not found." }, { status: 404 });
   }
 
-  const [workflowName, filename] = params.path;
+  const [workflowName, filename] = filePath;
   if (!workflowName || !filename) {
     return NextResponse.json({ error: "Invalid file path." }, { status: 400 });
   }

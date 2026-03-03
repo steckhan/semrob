@@ -26,6 +26,19 @@ export type WorkflowPatchTargets = {
   paramsNodeId: string;
   positivePromptNodeId?: string;
   negativePromptNodeId?: string;
+  // Per-field node overrides — fall back to paramsNodeId if not set
+  seedNodeId?: string;
+  seedInputKey?: string;
+  stepsNodeId?: string;
+  stepsInputKey?: string;
+  cfgNodeId?: string;
+  cfgInputKey?: string;
+  samplerNameNodeId?: string;
+  samplerNameInputKey?: string;
+  schedulerNodeId?: string;
+  schedulerInputKey?: string;
+  denoiseNodeId?: string;
+  denoiseInputKey?: string;
 };
 
 export type WorkflowMapping = {
