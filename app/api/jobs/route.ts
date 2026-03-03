@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { COMFYUI_BASE_URL } from "@/lib/constants";
+import { COMFYUI_BASE_URL, OPENAI_API_KEY } from "@/lib/constants";
 import { createJob } from "@/lib/jobRunner";
 import type { InpaintParams } from "@/lib/types";
 import { loadWorkflowBundle } from "@/lib/workflowLoader";
@@ -50,6 +50,19 @@ export async function POST(request: Request) {
   const rawComfyBaseUrl = formData.get("comfyBaseUrl");
   const comfyBaseUrl = parseComfyBaseUrl(rawComfyBaseUrl);
 
+  const inpaintMode =
+    String(formData.get("inpaintMode") ?? "local") === "api" ? "api" : "local";
+
+  const rawOpenaiApiKey = String(formData.get("openaiApiKey") ?? "").trim();
+  const openaiApiKey = rawOpenaiApiKey || OPENAI_API_KEY;
+
+  const VALID_OPENAI_MODELS = ["gpt-image-1", "gpt-image-1.5"] as const;
+  type OpenAIModel = (typeof VALID_OPENAI_MODELS)[number];
+  const rawOpenaiModel = String(formData.get("openaiModel") ?? "gpt-image-1").trim();
+  const openaiModel: OpenAIModel = (VALID_OPENAI_MODELS as readonly string[]).includes(rawOpenaiModel)
+    ? (rawOpenaiModel as OpenAIModel)
+    : "gpt-image-1";
+
   if (!imageFile || !maskFile) {
     return NextResponse.json(
       { error: "Image and mask are required." },
@@ -57,7 +70,18 @@ export async function POST(request: Request) {
     );
   }
 
+  if (inpaintMode === "api" && !openaiApiKey) {
+    return NextResponse.json(
+      {
+        error:
+          "OpenAI API key is required for API mode. Provide it in the UI or set the OPENAI_API_KEY environment variable.",
+      },
+      { status: 400 },
+    );
+  }
+
   if (
+    inpaintMode === "local" &&
     rawComfyBaseUrl !== null &&
     String(rawComfyBaseUrl).trim().length > 0 &&
     comfyBaseUrl === null
@@ -95,7 +119,7 @@ export async function POST(request: Request) {
   };
 
   const { workflows, mappings } = await loadWorkflowBundle();
-  if (workflows.length === 0) {
+  if (inpaintMode === "local" && workflows.length === 0) {
     return NextResponse.json(
       { error: "No workflows found in /workflows." },
       { status: 500 },
@@ -110,10 +134,13 @@ export async function POST(request: Request) {
   const job = await createJob({
     imageBuffer: Buffer.from(imageBuffer),
     maskBuffer: Buffer.from(maskBuffer),
-    comfyBaseUrl: comfyBaseUrl ?? COMFYUI_BASE_URL,
+    comfyBaseUrl: inpaintMode === "local" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
     params,
-    workflows,
-    mappings,
+    workflows: inpaintMode === "local" ? workflows : [],
+    mappings: inpaintMode === "local" ? mappings : [],
+    inpaintMode: inpaintMode as "local" | "api",
+    openaiApiKey: inpaintMode === "api" ? openaiApiKey : undefined,
+    openaiModel: inpaintMode === "api" ? openaiModel : undefined,
   });
 
   return NextResponse.json(job);
