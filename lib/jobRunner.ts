@@ -276,6 +276,14 @@ async function runJob(
   const variationCount = runningJob.params.variationCount ?? 1;
   const baseSeed = runningJob.params.seed;
 
+  function seedForVariation(variationIndex: number): number {
+    switch (runningJob.params.seedMode ?? "increment") {
+      case "random":    return Math.floor(Math.random() * 0xFFFFFFFF);
+      case "fixed":     return baseSeed;
+      case "increment": return baseSeed + variationIndex;
+    }
+  }
+
   // Build all (workflow, variationIndex) pairs
   const workflowVariations: Array<{ workflow: (typeof workflows)[number]; variationIndex: number }> = [];
   for (const workflow of workflows) {
@@ -286,7 +294,7 @@ async function runJob(
 
   await runWithConcurrency(workflowVariations, MAX_PARALLEL_WORKFLOWS, async ({ workflow, variationIndex }) => {
     const mapping = mappings.find((entry) => entry.workflowName === workflow.name);
-    const variationParams = { ...runningJob.params, seed: baseSeed + variationIndex };
+    const variationParams = { ...runningJob.params, seed: seedForVariation(variationIndex) };
 
     // For alpha-mask workflows the image already has the mask composited into
     // its alpha channel; use the pre-written input_alpha.png instead of input.png
