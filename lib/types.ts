@@ -46,6 +46,29 @@ export type WorkflowMapping = {
   targets: WorkflowPatchTargets;
 };
 
+export type YoloBox = {
+  class: number;
+  confidence: number;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+};
+
+export type YoloImageResult = {
+  annotatedUrl: string;
+  boxes: YoloBox[];
+};
+
+export type YoloJobResults = {
+  status: "running" | "completed" | "failed";
+  model: string;
+  confThreshold: number;
+  original?: YoloImageResult;
+  outputs?: Record<string, YoloImageResult>;
+  error?: string;
+};
+
 export type JobStatus = "queued" | "running" | "completed" | "failed";
 
 export type JobOutput = {
@@ -73,5 +96,6 @@ export type JobRecord = {
   promptIds: Record<string, string>;
   outputs: JobOutput[];
   patchedWorkflows?: Record<string, unknown>;
+  yoloResults?: YoloJobResults;
   error?: string;
 };
