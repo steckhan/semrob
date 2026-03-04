@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { OddCatalog } from "@/lib/oddCatalog";
+import type { SeedMode } from "@/lib/types";
 import { buildPromptFromSelections } from "@/lib/oddCatalog";
 
 import ImageCompare from "./components/ImageCompare";
@@ -82,6 +83,7 @@ type OpenAIModelValue = (typeof OPENAI_MODELS)[number]["value"];
 
 const DEFAULT_PARAMS = {
   seed: 42,
+  seedMode: "random" as SeedMode,
   steps: 4,
   cfgScale: 1,
   sampler: "euler_ancestral",
@@ -683,15 +685,31 @@ export default function HomePage() {
 
                   <div>
                     <label>Seed</label>
-                    <input
-                      className="input"
-                      type="number"
-                      value={params.seed}
-                      disabled={params.useWorkflowDefaults}
-                      onChange={(e) =>
-                        setParams((p) => ({ ...p, seed: Number(e.target.value) }))
-                      }
-                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <select
+                        className="input"
+                        value={params.seedMode}
+                        disabled={params.useWorkflowDefaults}
+                        onChange={(e) =>
+                          setParams((p) => ({ ...p, seedMode: e.target.value as "random" | "increment" | "fixed" }))
+                        }
+                      >
+                        <option value="random">random</option>
+                        <option value="increment">increment</option>
+                        <option value="fixed">fixed</option>
+                      </select>
+                      {params.seedMode !== "random" && (
+                        <input
+                          className="input"
+                          type="number"
+                          value={params.seed}
+                          disabled={params.useWorkflowDefaults}
+                          onChange={(e) =>
+                            setParams((p) => ({ ...p, seed: Number(e.target.value) }))
+                          }
+                        />
+                      )}
+                    </div>
                   </div>
                 </>
               )}
