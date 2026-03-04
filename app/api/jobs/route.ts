@@ -7,6 +7,7 @@ import { loadWorkflowBundle } from "@/lib/workflowLoader";
 
 const DEFAULT_PARAMS: InpaintParams = {
   seed: 42,
+  seedMode: "random",
   steps: 4,
   cfgScale: 1,
   sampler: "euler_ancestral",
@@ -95,8 +96,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const rawSeedMode = String(formData.get("seedMode") ?? DEFAULT_PARAMS.seedMode);
+  const seedMode = (["random", "increment", "fixed"].includes(rawSeedMode)
+    ? rawSeedMode
+    : DEFAULT_PARAMS.seedMode) as InpaintParams["seedMode"];
+
   const params: InpaintParams = {
     seed: Number(formData.get("seed") ?? DEFAULT_PARAMS.seed),
+    seedMode,
     steps: Number(formData.get("steps") ?? DEFAULT_PARAMS.steps),
     cfgScale: Number(formData.get("cfgScale") ?? DEFAULT_PARAMS.cfgScale),
     sampler: String(formData.get("sampler") ?? DEFAULT_PARAMS.sampler),

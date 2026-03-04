@@ -1,5 +1,8 @@
+export type SeedMode = "random" | "increment" | "fixed";
+
 export type InpaintParams = {
   seed: number;
+  seedMode: SeedMode;
   steps: number;
   cfgScale: number;
   sampler: string;
