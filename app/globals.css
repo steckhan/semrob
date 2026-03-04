@@ -370,13 +370,17 @@ select {
 }
 
 .slider-label {
-  min-width: 68px;
-  margin-bottom: 0;
+  width: 68px;
   flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
 }
 
 input[type="range"] {
-  flex: 1;
   -webkit-appearance: none;
   height: 4px;
   background: var(--surface3);
@@ -406,9 +410,10 @@ input[type="range"]:disabled {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--accent-light);
-  min-width: 32px;
+  width: 32px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 /* ── Two-column params grid ── */
