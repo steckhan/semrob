@@ -85,6 +85,34 @@ export type JobOutput = {
   imageType?: string;
 };
 
+export type BatchStatus = "pending" | "uploading" | "running" | "completed" | "failed";
+
+export type BatchSubJob = {
+  imageIndex: number;
+  originalName: string;
+  jobId?: string;
+  status: "pending" | "running" | "completed" | "failed";
+  error?: string;
+};
+
+export type BatchRecord = {
+  id: string;
+  createdAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  status: BatchStatus;
+  totalImages: number;
+  completedImages: number;
+  failedImages: number;
+  inpaintMode: "local" | "api";
+  comfyBaseUrl?: string;
+  openaiModel?: string;
+  params: InpaintParams;
+  subJobs: BatchSubJob[];
+  outputDir: string;
+  error?: string;
+};
+
 export type JobRecord = {
   id: string;
   createdAt: string;
