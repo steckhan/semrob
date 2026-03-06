@@ -19,5 +19,28 @@
       "denoiseNodeId": "__none__",
       "positivePromptNodeId": "149"
     }
+  },
+  {
+    "workflowName": "flux2_klein_sam2",
+    "targets": {
+      "imageNodeId": "76",
+      "imageInputKey": "image",
+      "maskNodeId": "76",
+      "maskInputKey": "image",
+      "paramsNodeId": "108",
+      "seedNodeId": "99",
+      "seedInputKey": "seed",
+      "stepsNodeId": "116",
+      "stepsInputKey": "steps",
+      "cfgNodeId": "115",
+      "cfgInputKey": "cfg",
+      "samplerNameNodeId": "107",
+      "samplerNameInputKey": "sampler_name",
+      "schedulerNodeId": "__none__",
+      "denoiseNodeId": "__none__",
+      "positivePromptNodeId": "149",
+      "automaskSwitchNodeId": "209",
+      "sam2PromptNodeId": "201"
+    }
   }
 ]

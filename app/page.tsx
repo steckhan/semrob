@@ -123,6 +123,8 @@ const DEFAULT_PARAMS = {
   useWorkflowDefaults: false,
   positivePrompt: "",
   negativePrompt: "",
+  automaskMode: "manual" as "manual" | "auto",
+  sam2Prompt: "hand",
 };
 
 function JobResultSection({
@@ -1082,6 +1084,26 @@ export default function HomePage() {
                       <label>Negative Prompt</label>
                       <input className="input" type="text" value={params.negativePrompt} disabled={params.useWorkflowDefaults}
                         onChange={(e) => setParams((p) => ({ ...p, negativePrompt: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label>Mask Mode</label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <select className="input" value={params.automaskMode}
+                          onChange={(e) => setParams((p) => ({ ...p, automaskMode: e.target.value as "manual" | "auto" }))}>
+                          <option value="manual">Manual</option>
+                          <option value="auto">Auto (SAM2)</option>
+                        </select>
+                        {params.automaskMode === "auto" && (
+                          <input
+                            className="input"
+                            type="text"
+                            placeholder="segment target (e.g. hand)"
+                            value={params.sam2Prompt}
+                            onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
+                            style={{ flex: 1 }}
+                          />
+                        )}
+                      </div>
                     </div>
                     <div className="slider-row">
                       <label className="slider-label">Steps</label>
