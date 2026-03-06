@@ -1087,24 +1087,24 @@ export default function HomePage() {
                     </div>
                     <div>
                       <label>Mask Mode</label>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <select className="input" value={params.automaskMode}
-                          onChange={(e) => setParams((p) => ({ ...p, automaskMode: e.target.value as "manual" | "auto" }))}>
-                          <option value="manual">Manual</option>
-                          <option value="auto">Auto (SAM2)</option>
-                        </select>
-                        {params.automaskMode === "auto" && (
-                          <input
-                            className="input"
-                            type="text"
-                            placeholder="segment target (e.g. hand)"
-                            value={params.sam2Prompt}
-                            onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
-                            style={{ flex: 1 }}
-                          />
-                        )}
-                      </div>
+                      <select className="input" value={params.automaskMode}
+                        onChange={(e) => setParams((p) => ({ ...p, automaskMode: e.target.value as "manual" | "auto" }))}>
+                        <option value="manual">Manual</option>
+                        <option value="auto">Auto (SAM2)</option>
+                      </select>
                     </div>
+                    {params.automaskMode === "auto" && (
+                      <div>
+                        <label>SAM2 Segment Target</label>
+                        <input
+                          className="input"
+                          type="text"
+                          placeholder="e.g. hand, person, car"
+                          value={params.sam2Prompt}
+                          onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
+                        />
+                      </div>
+                    )}
                     <div className="slider-row">
                       <label className="slider-label">Steps</label>
                       <input type="range" min={1} max={100} value={params.steps} disabled={params.useWorkflowDefaults}
