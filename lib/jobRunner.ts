@@ -1,4 +1,6 @@
 import fs from "fs/promises";
+import http from "node:http";
+import https from "node:https";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -99,6 +101,23 @@ function buildComfyViewUrl(
   return `${comfyBaseUrl}/view?filename=${encodeURIComponent(filename)}&subfolder=${encodeURIComponent(subfolder)}&type=${encodeURIComponent(imageType)}`;
 }
 
+function httpGetBuffer(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https://") ? https : http;
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`Failed to fetch ComfyUI output: HTTP ${res.statusCode}`));
+        res.resume();
+        return;
+      }
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () => resolve(Buffer.concat(chunks)));
+      res.on("error", reject);
+    }).on("error", reject);
+  });
+}
+
 async function copyOutputToLocal(
   comfyBaseUrl: string,
   filename: string,
@@ -107,11 +126,7 @@ async function copyOutputToLocal(
   localPath: string,
 ): Promise<void> {
   const url = buildComfyViewUrl(comfyBaseUrl, filename, subfolder, imageType);
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ComfyUI output: ${response.status}`);
-  }
-  const buffer = Buffer.from(await response.arrayBuffer());
+  const buffer = await httpGetBuffer(url);
   await fs.writeFile(localPath, buffer);
 }
 

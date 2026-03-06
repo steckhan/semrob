@@ -36,6 +36,11 @@ function spawnYolo(args: string[]): Promise<void> {
     proc.stderr.on("data", (d: Buffer) => {
       stderr += d.toString();
     });
+    // Handle spawn errors (e.g. ENOENT when YOLO_PYTHON path is wrong).
+    // Without this, an unhandled EventEmitter error crashes the process on Node.js 24.
+    proc.on("error", (err) => {
+      reject(new Error(`Failed to spawn YOLO process: ${err.message}. Check YOLO_PYTHON="${YOLO_PYTHON}" and YOLO_SCRIPT_PATH="${YOLO_SCRIPT_PATH}".`));
+    });
     proc.on("close", (code) => {
       if (code === 0) resolve();
       else reject(new Error(stderr || `yolo_detect.py exited with code ${code}`));
