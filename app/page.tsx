@@ -75,6 +75,15 @@ type BatchStatusRecord = {
   subJobs: BatchSubJobRecord[];
 };
 
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, data] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
+  const binary = atob(data);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
 function formatDuration(startedAt?: string, completedAt?: string): string | null {
   if (!startedAt || !completedAt) return null;
   const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
@@ -534,37 +543,41 @@ export default function HomePage() {
     setComfyTestError(null);
     setComfyTestMessage(null);
 
-    const formData = new FormData();
-    formData.append("image", imageFile);
-    const maskBlob = await fetch(maskDataUrl).then((res) => res.blob());
-    formData.append("mask", maskBlob, "mask.png");
-    Object.entries(params).forEach(([key, value]) => formData.append(key, String(value)));
-    formData.append("inpaintMode", inpaintMode);
-    if (inpaintMode === "api") {
-      formData.append("openaiApiKey", openaiApiKey.trim());
-      formData.append("openaiModel", openaiModel);
-    } else {
-      formData.append("comfyBaseUrl", comfyBaseUrl.trim());
-    }
+    try {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      const maskBlob = dataUrlToBlob(maskDataUrl);
+      formData.append("mask", maskBlob, "mask.png");
+      Object.entries(params).forEach(([key, value]) => formData.append(key, String(value)));
+      formData.append("inpaintMode", inpaintMode);
+      if (inpaintMode === "api") {
+        formData.append("openaiApiKey", openaiApiKey.trim());
+        formData.append("openaiModel", openaiModel);
+      } else {
+        formData.append("comfyBaseUrl", comfyBaseUrl.trim());
+      }
 
-    const response = await fetch("/api/jobs", { method: "POST", body: formData });
-    if (!response.ok) {
-      const payload = (await response.json()) as { error?: string };
-      setComfyTestError(payload.error ?? "Failed to submit job.");
+      const response = await fetch("/api/jobs", { method: "POST", body: formData });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        setComfyTestError(payload.error ?? "Failed to submit job.");
+        return;
+      }
+
+      const payload = (await response.json()) as JobRecord;
+      setJob(payload);
+      window.localStorage.setItem(INPAINT_MODE_KEY, inpaintMode);
+      if (inpaintMode === "local") {
+        window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
+      } else {
+        window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
+        window.localStorage.setItem(OPENAI_MODEL_KEY, openaiModel);
+      }
+    } catch (err) {
+      setComfyTestError(err instanceof Error ? err.message : "Network error submitting job.");
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    const payload = (await response.json()) as JobRecord;
-    setJob(payload);
-    window.localStorage.setItem(INPAINT_MODE_KEY, inpaintMode);
-    if (inpaintMode === "local") {
-      window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
-    } else {
-      window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
-      window.localStorage.setItem(OPENAI_MODEL_KEY, openaiModel);
-    }
-    setIsSubmitting(false);
   };
 
   // ── Batch job submit ──────────────────────────────────────────────────────
@@ -637,22 +650,26 @@ export default function HomePage() {
     setIsTestingComfy(true);
     setComfyTestMessage(null);
     setComfyTestError(null);
-    const response = await fetch("/api/comfyui/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comfyBaseUrl: comfyBaseUrl.trim() }),
-    });
-    const payload = (await response.json()) as { ok?: boolean; comfyBaseUrl?: string; error?: string };
-    if (!response.ok || !payload.ok) {
-      setComfyTestError(payload.error ?? "Failed to connect.");
+    try {
+      const response = await fetch("/api/comfyui/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comfyBaseUrl: comfyBaseUrl.trim() }),
+      });
+      const payload = (await response.json()) as { ok?: boolean; comfyBaseUrl?: string; error?: string };
+      if (!response.ok || !payload.ok) {
+        setComfyTestError(payload.error ?? "Failed to connect.");
+        return;
+      }
+      const resolvedUrl = payload.comfyBaseUrl ?? comfyBaseUrl.trim();
+      setComfyBaseUrl(resolvedUrl);
+      window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, resolvedUrl);
+      setComfyTestMessage(`Connected to ${resolvedUrl}`);
+    } catch (err) {
+      setComfyTestError(err instanceof Error ? err.message : "Network error.");
+    } finally {
       setIsTestingComfy(false);
-      return;
     }
-    const resolvedUrl = payload.comfyBaseUrl ?? comfyBaseUrl.trim();
-    setComfyBaseUrl(resolvedUrl);
-    window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, resolvedUrl);
-    setComfyTestMessage(`Connected to ${resolvedUrl}`);
-    setIsTestingComfy(false);
   };
 
   // ── Poll single job ───────────────────────────────────────────────────────
@@ -661,10 +678,12 @@ export default function HomePage() {
     const yoloDone = job.yoloResults?.status === "completed" || job.yoloResults?.status === "failed";
     if ((job.status === "completed" && yoloDone) || job.status === "failed") return;
     const timer = window.setInterval(async () => {
-      const response = await fetch(`/api/jobs/${job.id}`);
-      if (!response.ok) return;
-      const payload = (await response.json()) as JobRecord;
-      setJob(payload);
+      try {
+        const response = await fetch(`/api/jobs/${job.id}`);
+        if (!response.ok) return;
+        const payload = (await response.json()) as JobRecord;
+        setJob(payload);
+      } catch { /* network hiccup — retry next tick */ }
     }, 1500);
     return () => window.clearInterval(timer);
   }, [job]);
@@ -677,13 +696,15 @@ export default function HomePage() {
       return;
     }
     const timer = window.setInterval(async () => {
-      const res = await fetch(`/api/batch/${batchJobId}`);
-      if (!res.ok) return;
-      const payload = (await res.json()) as BatchStatusRecord;
-      setBatchStatus(payload);
-      if (payload.status === "completed" || payload.status === "failed") {
-        setIsBatchRunning(false);
-      }
+      try {
+        const res = await fetch(`/api/batch/${batchJobId}`);
+        if (!res.ok) return;
+        const payload = (await res.json()) as BatchStatusRecord;
+        setBatchStatus(payload);
+        if (payload.status === "completed" || payload.status === "failed") {
+          setIsBatchRunning(false);
+        }
+      } catch { /* network hiccup — retry next tick */ }
     }, 2000);
     return () => window.clearInterval(timer);
   }, [batchJobId, batchStatus?.status]);
@@ -695,9 +716,11 @@ export default function HomePage() {
     if (subJobsWithId.length === 0) return;
     Promise.all(
       subJobsWithId.map(async (s) => {
-        const res = await fetch(`/api/jobs/${s.jobId!}`);
-        if (!res.ok) return null;
-        return { index: s.imageIndex, job: (await res.json()) as JobRecord };
+        try {
+          const res = await fetch(`/api/jobs/${s.jobId!}`);
+          if (!res.ok) return null;
+          return { index: s.imageIndex, job: (await res.json()) as JobRecord };
+        } catch { return null; }
       }),
     ).then((results) => {
       const map: Record<number, JobRecord> = {};
@@ -715,18 +738,22 @@ export default function HomePage() {
     );
     if (runningEntries.length === 0) return;
     const timer = window.setInterval(async () => {
-      const updates = await Promise.all(
-        runningEntries.map(async ([idx, j]) => {
-          const res = await fetch(`/api/jobs/${j.id}`);
-          if (!res.ok) return null;
-          return { idx: Number(idx), job: (await res.json()) as JobRecord };
-        }),
-      );
-      setBatchAllJobs((prev) => {
-        const next = { ...prev };
-        for (const u of updates) if (u) next[u.idx] = u.job;
-        return next;
-      });
+      try {
+        const updates = await Promise.all(
+          runningEntries.map(async ([idx, j]) => {
+            try {
+              const res = await fetch(`/api/jobs/${j.id}`);
+              if (!res.ok) return null;
+              return { idx: Number(idx), job: (await res.json()) as JobRecord };
+            } catch { return null; }
+          }),
+        );
+        setBatchAllJobs((prev) => {
+          const next = { ...prev };
+          for (const u of updates) if (u) next[u.idx] = u.job;
+          return next;
+        });
+      } catch { /* network hiccup — retry next tick */ }
     }, 2000);
     return () => window.clearInterval(timer);
   }, [batchAllJobs]);
@@ -744,23 +771,27 @@ export default function HomePage() {
     }
     let cancelled = false;
     const fetchJob = async () => {
-      const res = await fetch(`/api/jobs/${subJob.jobId}`);
-      if (!res.ok || cancelled) return;
-      const data = (await res.json()) as JobRecord;
-      if (!cancelled) setBatchSelectedJob(data);
+      try {
+        const res = await fetch(`/api/jobs/${subJob.jobId}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as JobRecord;
+        if (!cancelled) setBatchSelectedJob(data);
+      } catch { /* ignore */ }
     };
     fetchJob();
     // Re-poll while YOLO is running
     const timer = window.setInterval(async () => {
-      const res = await fetch(`/api/jobs/${subJob.jobId}`);
-      if (!res.ok || cancelled) return;
-      const data = (await res.json()) as JobRecord;
-      if (!cancelled) {
-        setBatchSelectedJob(data);
-        if (data.yoloResults?.status !== "running") {
-          window.clearInterval(timer);
+      try {
+        const res = await fetch(`/api/jobs/${subJob.jobId}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as JobRecord;
+        if (!cancelled) {
+          setBatchSelectedJob(data);
+          if (data.yoloResults?.status !== "running") {
+            window.clearInterval(timer);
+          }
         }
-      }
+      } catch { /* network hiccup — retry next tick */ }
     }, 2000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [appMode, batchActiveIndex, batchStatus?.subJobs]);
@@ -1157,13 +1188,23 @@ export default function HomePage() {
                   {singleRunLabel}
                 </button>
                 {job?.status === "completed" && (
-                  <button
-                    className="btn btn-outline"
-                    style={{ whiteSpace: "nowrap" }}
-                    onClick={() => { setJob(null); setImageFile(null); setMaskDataUrl(null); }}
-                  >
-                    New
-                  </button>
+                  <>
+                    <button
+                      className="btn btn-outline"
+                      style={{ whiteSpace: "nowrap" }}
+                      title="Keep image &amp; mask, run again with new prompt"
+                      onClick={() => setJob(null)}
+                    >
+                      Re-run
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      style={{ whiteSpace: "nowrap" }}
+                      onClick={() => { setJob(null); setImageFile(null); setMaskDataUrl(null); }}
+                    >
+                      New
+                    </button>
+                  </>
                 )}
               </div>
             </div>
