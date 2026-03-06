@@ -88,6 +88,12 @@ function convertComfyGraphToPrompt(
         if (linked) {
           nodeInputs[input.name] = [String(linked.sourceNodeId), linked.sourceSlot];
         }
+        // If this linked input also has a widget, ComfyUI still stores a
+        // widgets_values slot for it (the saved/default value). Advance the
+        // index so subsequent widget inputs read the correct slot.
+        if (input.widget) {
+          widgetIndex += 1;
+        }
         continue;
       }
 
@@ -131,6 +137,7 @@ export async function loadWorkflows(): Promise<WorkflowDefinition[]> {
       .map(async (entry) => {
         const filePath = path.join(WORKFLOWS_DIR, entry.name);
         const raw = await fs.readFile(filePath, "utf8");
+        if (!raw.trim()) return null;
         const parsed = JSON.parse(raw) as unknown;
         const json = isComfyGraphWorkflow(parsed)
           ? convertComfyGraphToPrompt(parsed)
@@ -143,7 +150,9 @@ export async function loadWorkflows(): Promise<WorkflowDefinition[]> {
       }),
   );
 
-  return workflows.sort((a, b) => a.name.localeCompare(b.name));
+  return workflows
+    .filter((w): w is WorkflowDefinition => w !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function loadWorkflowBundle(): Promise<WorkflowBundle> {
