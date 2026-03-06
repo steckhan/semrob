@@ -843,23 +843,19 @@ export default function HomePage() {
   // Detect active batch image change to reset canvas key
   const batchCanvasKey = `batch-canvas-${batchActiveIndex}-${batchImages[batchActiveIndex]?.id ?? "empty"}`;
 
-  // Hide floating toolbar after run is triggered
+  // Hide floating toolbar while a job is actively running
   const toolbarHidden = appMode === "single"
-    ? (isSubmitting || job?.status === "running" || job?.status === "completed")
+    ? (isSubmitting || job?.status === "running")
     : (isBatchRunning || batchStatus?.status === "running" || batchStatus?.status === "completed");
 
   // Steps: Upload → Mask → Run → Results (single mode only)
   const stepDone = [!!imageFile, !!maskDataUrl, !!job, job?.status === "completed"];
 
-  // ── Job active guards (Fix 3) ─────────────────────────────────────────────
+  // ── Job active guards ─────────────────────────────────────────────────────
   const singleJobActive = isSubmitting || (!!job && job.status !== "completed" && job.status !== "failed");
   const batchJobActive = isBatchRunning;
 
-  const singleRunLabel = isSubmitting
-    ? "⟳  Running…"
-    : job?.status === "completed"
-    ? "✓  Done"
-    : "▶  Run Inpainting";
+  const singleRunLabel = isSubmitting ? "⟳  Running…" : "▶  Run Inpainting";
 
   // The image to show in the canvas area
   const canvasImageUrl = appMode === "batch"
@@ -1183,29 +1179,10 @@ export default function HomePage() {
                   className={`btn-run${isSubmitting ? " running" : ""}`}
                   style={{ flex: 1 }}
                   onClick={submitJob}
-                  disabled={!imageFile || !maskDataUrl || isSubmitting || job?.status === "completed" || batchJobActive}
+                  disabled={!imageFile || !maskDataUrl || isSubmitting || batchJobActive}
                 >
                   {singleRunLabel}
                 </button>
-                {job?.status === "completed" && (
-                  <>
-                    <button
-                      className="btn btn-outline"
-                      style={{ whiteSpace: "nowrap" }}
-                      title="Keep image &amp; mask, run again with new prompt"
-                      onClick={() => setJob(null)}
-                    >
-                      Re-run
-                    </button>
-                    <button
-                      className="btn btn-outline"
-                      style={{ whiteSpace: "nowrap" }}
-                      onClick={() => { setJob(null); setImageFile(null); setMaskDataUrl(null); }}
-                    >
-                      New
-                    </button>
-                  </>
-                )}
               </div>
             </div>
           )}
