@@ -32,28 +32,26 @@ Edit `.env.local` and set the paths for your machine — at minimum:
 
 ### 3. Set up YOLO Python environment
 
-Create a dedicated conda (or venv) environment and install the required packages:
+Install the required packages into a Python 3.9+ environment:
 
 ```bash
-# With conda
+# Option A — reuse an existing conda env (e.g. your GPU/ML env):
+C:\Users\YOU\miniconda3\envs\gpu\python.exe -m pip install ultralytics opencv-python
+
+# Option B — create a fresh dedicated env:
 conda create -n yolo python=3.9
 conda activate yolo
 pip install -r scripts/requirements.txt
-
-# With venv
-python -m venv .venv
-.venv\Scripts\activate      # Windows
-pip install -r scripts/requirements.txt
 ```
 
-Then point `YOLO_PYTHON` in `.env.local` to the Python executable of that environment:
+Then point `YOLO_PYTHON` in `.env.local` to that Python executable:
 
 ```
-# conda example
+# existing gpu env
+YOLO_PYTHON=C:\Users\YOU\miniconda3\envs\gpu\python.exe
+
+# or a fresh yolo env
 YOLO_PYTHON=C:\Users\YOU\miniconda3\envs\yolo\python.exe
-
-# venv example
-YOLO_PYTHON=C:\path\to\project\.venv\Scripts\python.exe
 ```
 
 ### 4. Place your ComfyUI workflows
