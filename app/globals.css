@@ -799,6 +799,12 @@ input[type="range"]:disabled {
   pointer-events: auto;
 }
 
+/* Override .gallery-item img's border/height-auto for mask overlays */
+.gallery-item .gallery-mask-thumb {
+  border: none;
+  height: 100%;
+}
+
 /* Batch thumbnail mask — hidden by default, shown on hover */
 .batch-thumb .batch-mask-thumb {
   position: absolute;
