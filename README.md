@@ -8,6 +8,33 @@ A local web app that runs multiple ComfyUI inpainting pipelines in parallel with
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) running locally
 - Python 3.9+ with `ultralytics` and `opencv-python` (for YOLO detection)
 
+## ComfyUI Setup
+
+### Model Weights
+
+Download and place these into your ComfyUI `models/` subdirectories:
+
+| Role | Model | Download |
+|---|---|---|
+| Diffusion model | FLUX.2-klein 4B | [black-forest-labs/FLUX.2-klein-4B](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) |
+| Text encoder | Qwen3 4B (split files) | [Comfy-Org · text\_encoders](https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/tree/main/split_files/text_encoders) |
+| VAE | FLUX.2 VAE (split files) | [Comfy-Org · vae](https://huggingface.co/Comfy-Org/flux2-dev/tree/main/split_files/vae) |
+| Segmentation | SAM2 Hiera Base Plus | [facebook/sam2-hiera-base-plus](https://huggingface.co/facebook/sam2-hiera-base-plus) |
+| Object detection | GroundingDINO SwinB | [IDEA-Research/grounding-dino-base](https://huggingface.co/IDEA-Research/grounding-dino-base) |
+
+### Custom Nodes
+
+Install the following via **ComfyUI Manager**:
+
+- ComfyUI Impact Pack
+- ComfyUI-SAM2
+- ComfyUI LayerStyle
+- rgthree-comfy
+- ComfyUI Easy Use
+- ComfyUI KJNodes
+- ComfyUI_essentials
+- WAS Node Suite
+
 ## Setup
 
 ### 1. Install Node.js dependencies
