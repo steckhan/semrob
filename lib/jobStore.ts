@@ -17,6 +17,7 @@ export function jobPath(jobId: string): string {
 export async function readJob(jobId: string): Promise<JobRecord | null> {
   try {
     const payload = await fs.readFile(jobPath(jobId), "utf8");
+    if (!payload.trim()) return null;
     return JSON.parse(payload) as JobRecord;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {

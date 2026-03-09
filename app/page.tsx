@@ -17,6 +17,7 @@ type JobOutput = {
   workflowName: string;
   variationIndex: number;
   url: string;
+  filename?: string;
 };
 
 type YoloBox = {
@@ -125,7 +126,99 @@ const DEFAULT_PARAMS = {
   negativePrompt: "",
   automaskMode: "manual" as "manual" | "auto",
   sam2Prompt: "hand",
+  sam2Threshold: 0.39,
 };
+
+const SLIDER_NUM_STYLE: React.CSSProperties = {
+  width: 48,
+  appearance: "textfield",
+  background: "var(--surface3)",
+  border: "1px solid var(--border)",
+  borderRadius: 4,
+  color: "var(--accent-light)",
+  padding: "2px 4px",
+  textAlign: "right",
+};
+
+function SliderNumInput({
+  value,
+  min,
+  max,
+  step,
+  disabled,
+  decimals = 0,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  disabled?: boolean;
+  decimals?: number;
+  onChange: (v: number) => void;
+}) {
+  const fmt = (n: number) => (decimals > 0 ? n.toFixed(decimals) : String(Math.round(n)));
+  const [text, setText] = useState(() => fmt(value));
+  const lastExternal = useRef(value);
+
+  if (value !== lastExternal.current) {
+    lastExternal.current = value;
+    setText(fmt(value));
+  }
+
+  return (
+    <input
+      className="slider-val"
+      type="text"
+      inputMode="decimal"
+      disabled={disabled}
+      style={SLIDER_NUM_STYLE}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        const n = parseFloat(raw);
+        if (!isNaN(n)) {
+          onChange(Math.min(max, Math.max(min, n)));
+        }
+      }}
+      onBlur={() => {
+        const n = parseFloat(text);
+        const clamped = isNaN(n) ? value : Math.min(max, Math.max(min, n));
+        lastExternal.current = clamped;
+        setText(fmt(clamped));
+        onChange(clamped);
+      }}
+    />
+  );
+}
+
+function Hint({ tip }: { tip: string }) {
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const handleMouseEnter = () => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const tooltipWidth = 220;
+    const gap = 7;
+    const pad = 8;
+    const centered = rect.left + rect.width / 2 - tooltipWidth / 2;
+    const left = Math.min(Math.max(pad, centered), window.innerWidth - tooltipWidth - pad);
+    setPos({ left, bottom: window.innerHeight - rect.top + gap });
+  };
+
+  return (
+    <span ref={ref} className="hint-badge" onMouseEnter={handleMouseEnter} onMouseLeave={() => setPos(null)}>
+      ?
+      {pos && (
+        <span className="hint-tooltip" style={{ left: pos.left, bottom: pos.bottom }}>
+          {tip}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function JobResultSection({
   job,
@@ -189,20 +282,36 @@ function JobResultSection({
           </div>
           <div className="card-body">
             <div className="gallery">
-              {outputs.map((output) => (
+              {(() => {
+                const results = outputs.filter(o => !o.filename?.startsWith("mask_"));
+                const masks = outputs.filter(o => o.filename?.startsWith("mask_"));
+                return results.map((output, i) => {
+                  const maskOutput = masks[i];
+                  return (
                 <div
                   key={`${workflowName}-${output.variationIndex}`}
                   className="gallery-item"
                   onClick={() => onLightbox(output.url, `${workflowName} · variation ${output.variationIndex + 1}`)}
                 >
                   <img src={output.url} alt={`${workflowName} variation ${output.variationIndex}`} />
+                  {maskOutput && (
+                    <img
+                      src={maskOutput.url}
+                      alt="Generated mask"
+                      className="gallery-mask-thumb"
+                      title="SAM2 generated mask"
+                      onClick={(e) => { e.stopPropagation(); onLightbox(maskOutput.url, `${workflowName} · mask ${i + 1}`); }}
+                    />
+                  )}
                   {imagePreviewUrl && (
                     <button className="gallery-compare-btn" onClick={(e) => { e.stopPropagation(); onCompare(output.url); }}>
                       ⇄ Compare
                     </button>
                   )}
                 </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
@@ -276,7 +385,8 @@ function BatchResultCard({
 }) {
   const [showYoloImages, setShowYoloImages] = useState(false);
 
-  const firstOutput = job.outputs?.[0];
+  const resultOutput = job.outputs?.find(o => !o.filename?.startsWith("mask_"));
+  const maskOutput   = job.outputs?.find(o =>  o.filename?.startsWith("mask_"));
   const yolo = job.yoloResults;
   const yoloDone = yolo?.status === "completed";
   const yoloRunning = yolo?.status === "running";
@@ -309,13 +419,24 @@ function BatchResultCard({
           {/* Thumbnail + YOLO summary row */}
           <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: 8, alignItems: "start" }}>
             {/* Inpainted thumbnail */}
-            {firstOutput ? (
+            {resultOutput ? (
               <div
                 className="gallery-item"
-                style={{ width: 72, height: 56, cursor: "pointer" }}
-                onClick={() => onLightbox(firstOutput.url, `${firstOutput.workflowName} · ${imageName}`)}
+                style={{ width: 72, height: 56, cursor: "pointer", overflow: "hidden", borderRadius: "var(--radius)" }}
+                onClick={() => onLightbox(resultOutput.url, `${resultOutput.workflowName} · ${imageName}`)}
               >
-                <img src={firstOutput.url} alt={imageName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={resultOutput.url} alt={imageName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {maskOutput && (
+                  <img
+                    src={maskOutput.url}
+                    alt="SAM2 mask"
+                    className="gallery-mask-thumb"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLightbox(maskOutput.url, `SAM2 mask · ${imageName}`);
+                    }}
+                  />
+                )}
               </div>
             ) : (
               <div style={{ width: 72, height: 56, background: "var(--surface2)", borderRadius: 4 }} />
@@ -407,6 +528,8 @@ export default function HomePage() {
   const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
   const [batchSelectedJob, setBatchSelectedJob] = useState<JobRecord | null>(null);
   const [batchAllJobs, setBatchAllJobs] = useState<Record<number, JobRecord>>({});
+  // Tracks which imageIndex values have already been fetched during the current batch run
+  const fetchedBatchIndices = useRef<Set<number>>(new Set());
   // Track whether we need to reset the canvas when switching batch images
   const prevBatchIndexRef = useRef<number>(-1);
 
@@ -586,6 +709,9 @@ export default function HomePage() {
   const submitBatch = async () => {
     if (batchImages.length === 0) return;
     setIsBatchRunning(true);
+    setBatchStatus(null);
+    setBatchAllJobs({});
+    fetchedBatchIndices.current = new Set();
     setUploadProgress({ uploaded: 0, total: batchImages.length });
 
     try {
@@ -705,6 +831,32 @@ export default function HomePage() {
         setBatchStatus(payload);
         if (payload.status === "completed" || payload.status === "failed") {
           setIsBatchRunning(false);
+        }
+        // Incrementally fetch individual job records for newly-completed
+        // sub-jobs so mask overlays appear as each image finishes.
+        const toFetch = payload.subJobs.filter(
+          (s) =>
+            s.jobId &&
+            (s.status === "completed" || s.status === "failed") &&
+            !fetchedBatchIndices.current.has(s.imageIndex),
+        );
+        if (toFetch.length > 0) {
+          for (const s of toFetch) fetchedBatchIndices.current.add(s.imageIndex);
+          Promise.all(
+            toFetch.map(async (s) => {
+              try {
+                const r = await fetch(`/api/jobs/${s.jobId!}`);
+                if (!r.ok) return null;
+                return { index: s.imageIndex, job: (await r.json()) as JobRecord };
+              } catch { return null; }
+            }),
+          ).then((results) => {
+            setBatchAllJobs((cur) => {
+              const next = { ...cur };
+              for (const u of results) if (u) next[u.index] = u.job;
+              return next;
+            });
+          });
         }
       } catch { /* network hiccup — retry next tick */ }
     }, 2000);
@@ -840,6 +992,7 @@ export default function HomePage() {
     setIsBatchRunning(false);
     setUploadProgress(null);
     setBatchAllJobs({});
+    fetchedBatchIndices.current = new Set();
   }, []);
 
   // Detect active batch image change to reset canvas key
@@ -1054,7 +1207,7 @@ export default function HomePage() {
                 )}
 
                 <div>
-                  <label>Prompt</label>
+                  <label>Prompt <Hint tip="Describe what to generate in the masked area. e.g. black glove, metal watch, leather jacket" /></label>
                   <input
                     className="input"
                     type="text"
@@ -1071,22 +1224,35 @@ export default function HomePage() {
 
                 {appMode === "single" && (
                   <div className="slider-row">
-                    <label className="slider-label">Variations</label>
+                    <label className="slider-label">Variations <Hint tip="Number of images to generate per run" /></label>
                     <input type="range" min={1} max={inpaintMode === "api" ? 10 : 12} value={params.variationCount}
                       onChange={(e) => setParams((p) => ({ ...p, variationCount: Number(e.target.value) }))} />
-                    <span className="slider-val">{params.variationCount}</span>
+                    <input
+                      className="slider-val"
+                      type="number"
+                      min={1}
+                      max={inpaintMode === "api" ? 10 : 12}
+                      step={1}
+                      style={{ width: 48, appearance: "textfield", background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--accent-light)", padding: "2px 4px" } as React.CSSProperties}
+                      value={params.variationCount}
+                      onChange={(e) => {
+                        const max = inpaintMode === "api" ? 10 : 12;
+                        const v = Math.min(max, Math.max(1, Number(e.target.value)));
+                        setParams((p) => ({ ...p, variationCount: v }));
+                      }}
+                    />
                   </div>
                 )}
 
                 {inpaintMode === "local" && (
                   <>
                     <div>
-                      <label>Negative Prompt</label>
+                      <label>Negative Prompt <Hint tip="Concepts to avoid in the output. e.g. blurry, unrealistic, watermark" /></label>
                       <input className="input" type="text" value={params.negativePrompt} disabled={params.useWorkflowDefaults}
                         onChange={(e) => setParams((p) => ({ ...p, negativePrompt: e.target.value }))} />
                     </div>
                     <div>
-                      <label>Mask Mode</label>
+                      <label>Mask Mode <Hint tip="Manual: paint the mask yourself. Auto: AI detects and masks the target object" /></label>
                       <select className="input" value={params.automaskMode}
                         onChange={(e) => setParams((p) => ({ ...p, automaskMode: e.target.value as "manual" | "auto" }))}>
                         <option value="manual">Manual</option>
@@ -1094,32 +1260,78 @@ export default function HomePage() {
                       </select>
                     </div>
                     {params.automaskMode === "auto" && (
-                      <div>
-                        <label>SAM2 Segment Target</label>
-                        <input
-                          className="input"
-                          type="text"
-                          placeholder="e.g. hand, person, car"
-                          value={params.sam2Prompt}
-                          onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <label>SAM2 Segment Target <Hint tip="Object for AI to auto-detect and mask. e.g. hand, person, bottle, car" /></label>
+                          <input
+                            className="input"
+                            type="text"
+                            placeholder="e.g. hand, person, car"
+                            value={params.sam2Prompt}
+                            onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
+                          />
+                        </div>
+                        <div className="slider-row">
+                          <label className="slider-label">SAM2 Thr. <Hint tip="Detection confidence threshold. Lower = larger/looser mask, higher = tighter fit" /></label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={params.sam2Threshold ?? 0.39}
+                            onChange={(e) => setParams((p) => ({ ...p, sam2Threshold: Number(e.target.value) }))}
+                          />
+                          <SliderNumInput
+                            value={params.sam2Threshold ?? 0.39}
+                            min={0} max={1} step={0.01} decimals={2}
+                            onChange={(v) => setParams((p) => ({ ...p, sam2Threshold: v }))}
+                          />
+                        </div>
+                      </>
                     )}
                     <div className="slider-row">
-                      <label className="slider-label">Steps</label>
+                      <label className="slider-label">Steps <Hint tip="Diffusion steps — more = slower but potentially sharper" /></label>
                       <input type="range" min={1} max={100} value={params.steps} disabled={params.useWorkflowDefaults}
                         onChange={(e) => setParams((p) => ({ ...p, steps: Number(e.target.value) }))} />
-                      <span className="slider-val">{params.steps}</span>
+                      <input
+                        className="slider-val"
+                        type="number"
+                        min={1}
+                        max={100}
+                        step={1}
+                        disabled={params.useWorkflowDefaults}
+                        style={{ width: 48, appearance: "textfield", background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--accent-light)", padding: "2px 4px" } as React.CSSProperties}
+                        value={params.steps}
+                        onChange={(e) => {
+                          const v = Math.min(100, Math.max(1, Number(e.target.value)));
+                          setParams((p) => ({ ...p, steps: v }));
+                        }}
+                      />
                     </div>
                     <div className="slider-row">
-                      <label className="slider-label">Mask Str.</label>
+                      <label className="slider-label">CFG <Hint tip="Classifier-free guidance. 1.0 = Flux default; higher = prompt followed more strictly" /></label>
+                      <input type="range" min={0} max={20} step={0.1} value={params.cfgScale} disabled={params.useWorkflowDefaults}
+                        onChange={(e) => setParams((p) => ({ ...p, cfgScale: Number(e.target.value) }))} />
+                      <SliderNumInput
+                        value={params.cfgScale}
+                        min={0} max={20} step={0.1} decimals={1}
+                        disabled={params.useWorkflowDefaults}
+                        onChange={(v) => setParams((p) => ({ ...p, cfgScale: v }))}
+                      />
+                    </div>
+                    <div className="slider-row">
+                      <label className="slider-label">Mask Str. <Hint tip="Inpaint denoising strength. 1.0 = fully replace masked area; lower = blend with original" /></label>
                       <input type="range" min={0} max={1} step={0.05} value={params.maskStrength}
                         onChange={(e) => setParams((p) => ({ ...p, maskStrength: Number(e.target.value) }))} />
-                      <span className="slider-val">{params.maskStrength.toFixed(2)}</span>
+                      <SliderNumInput
+                        value={params.maskStrength}
+                        min={0} max={1} step={0.05} decimals={2}
+                        onChange={(v) => setParams((p) => ({ ...p, maskStrength: v }))}
+                      />
                     </div>
                     <div className="params-grid">
                       <div>
-                        <label>Sampler</label>
+                        <label>Sampler <Hint tip="Algorithm for each diffusion step. euler_ancestral is the Flux default" /></label>
                         <select value={params.sampler} disabled={params.useWorkflowDefaults} onChange={(e) => setParams((p) => ({ ...p, sampler: e.target.value }))}>
                           <option value="euler_ancestral">euler_ancestral</option>
                           <option value="euler">euler</option>
@@ -1129,7 +1341,7 @@ export default function HomePage() {
                         </select>
                       </div>
                       <div>
-                        <label>Scheduler</label>
+                        <label>Scheduler <Hint tip="Noise schedule type. Affects texture and softness of the result" /></label>
                         <select value={params.scheduler} disabled={params.useWorkflowDefaults} onChange={(e) => setParams((p) => ({ ...p, scheduler: e.target.value }))}>
                           <option value="normal">normal</option>
                           <option value="karras">karras</option>
@@ -1138,7 +1350,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div>
-                      <label>Seed</label>
+                      <label>Seed <Hint tip="Controls randomness. Fixed seed + same settings = reproducible result" /></label>
                       <div style={{ display: "flex", gap: 6 }}>
                         <select className="input" value={params.seedMode} disabled={params.useWorkflowDefaults}
                           onChange={(e) => setParams((p) => ({ ...p, seedMode: e.target.value as "random" | "increment" | "fixed" }))}>
@@ -1187,6 +1399,12 @@ export default function HomePage() {
                 onRun={submitBatch}
                 onNew={handleBatchClearAll}
                 singleJobActive={singleJobActive}
+                automaskMode={params.automaskMode}
+                maskUrls={batchImages.map((_, i) => {
+                  const maskOut = batchAllJobs[i]?.outputs?.find(o => o.filename?.startsWith("mask_"));
+                  return maskOut?.url ?? null;
+                })}
+                onMaskLightbox={(url, caption) => { setLightboxUrl(url); setLightboxCaption(caption); }}
               />
             )}
           </div>

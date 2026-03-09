@@ -18,6 +18,9 @@ const DEFAULT_PARAMS: InpaintParams = {
   useWorkflowDefaults: false,
   positivePrompt: "wristwatch, metal casing, worn look",
   negativePrompt: "",
+  automaskMode: "manual",
+  sam2Prompt: "hand",
+  sam2Threshold: 0.39,
 };
 
 function parseComfyBaseUrl(rawValue: FormDataEntryValue | null): string | null {
@@ -125,6 +128,7 @@ export async function POST(request: Request) {
     ),
     automaskMode: String(formData.get("automaskMode") ?? "manual") === "auto" ? "auto" : "manual",
     sam2Prompt: String(formData.get("sam2Prompt") ?? "hand"),
+    sam2Threshold: Number(formData.get("sam2Threshold") ?? DEFAULT_PARAMS.sam2Threshold),
   };
 
   const workflowName = String(formData.get("workflowName") ?? "").trim();

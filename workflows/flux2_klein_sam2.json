@@ -1,1 +1,918 @@
-{"id":"3fbaf5ff-de12-4f58-a2c1-abe28877f4d0","revision":0,"last_node_id":209,"last_link_id":442,"nodes":[{"id":110,"type":"RandomNoise","pos":[1125.88525390625,98.9214859008789],"size":[270,82],"flags":{},"order":11,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"noise_seed","localized_name":"noise_seed","locked":null,"name":"noise_seed","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"noise_seed"},"link":204}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Noise","localized_name":"NOISE","locked":null,"name":"NOISE","nameLocked":null,"removable":null,"type":"NOISE","pos":null,"slot_index":null,"links":[194]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"RandomNoise","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{"noise_seed":true}},"widgets_values":[1275,"increment"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":115,"type":"CFGGuider","pos":[1125.88525390625,218.9215087890625],"size":[270,98],"flags":{},"order":47,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Model","localized_name":"model","locked":null,"name":"model","nameLocked":null,"removable":null,"type":"MODEL","pos":null,"link":193},{"color_off":null,"color_on":null,"dir":null,"label":"Positive","localized_name":"positive","locked":null,"name":"positive","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":318},{"color_off":null,"color_on":null,"dir":null,"label":"Negative","localized_name":"negative","locked":null,"name":"negative","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":319},{"color_off":null,"color_on":null,"dir":null,"label":"cfg","localized_name":"cfg","locked":null,"name":"cfg","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"cfg"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Guider","localized_name":"GUIDER","locked":null,"name":"GUIDER","nameLocked":null,"removable":null,"type":"GUIDER","pos":null,"slot_index":null,"links":[195]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"CFGGuider","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[1],"color":"#2a363b","bgcolor":"#3f5159"},{"id":113,"type":"VAELoader","pos":[218.28323364257812,442.4344177246094],"size":[364.4270935058594,58],"flags":{},"order":0,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"vae_name","localized_name":"vae_name","locked":null,"name":"vae_name","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"vae_name"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"VAE","localized_name":"VAE","locked":null,"name":"VAE","nameLocked":null,"removable":null,"type":"VAE","pos":null,"slot_index":null,"links":[200,239,322]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"VAELoader","models":[{"url":"https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors","name":"flux2-vae.safetensors","directory":"vae","directory_invalid":true}],"tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":["flux2-vae.safetensors"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":118,"type":"ConditioningZeroOut","pos":[648.33544921875,481.6598205566406],"size":[204.134765625,26],"flags":{},"order":16,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Conditioning","localized_name":"conditioning","locked":null,"name":"conditioning","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":216}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Conditioning","localized_name":"CONDITIONING","locked":null,"name":"CONDITIONING","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"slot_index":null,"links":[237]}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"ConditioningZeroOut","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":108,"type":"SamplerCustomAdvanced","pos":[1424.8438720703125,112.31643676757812],"size":[218.2527618408203,132.6289825439453],"flags":{},"order":48,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Noise","localized_name":"noise","locked":null,"name":"noise","nameLocked":null,"removable":null,"type":"NOISE","pos":null,"link":194},{"color_off":null,"color_on":null,"dir":null,"label":"Guider","localized_name":"guider","locked":null,"name":"guider","nameLocked":null,"removable":null,"type":"GUIDER","pos":null,"link":195},{"color_off":null,"color_on":null,"dir":null,"label":"Sampler","localized_name":"sampler","locked":null,"name":"sampler","nameLocked":null,"removable":null,"type":"SAMPLER","pos":null,"link":196},{"color_off":null,"color_on":null,"dir":null,"label":"Sigmas","localized_name":"sigmas","locked":null,"name":"sigmas","nameLocked":null,"removable":null,"type":"SIGMAS","pos":null,"link":197},{"color_off":null,"color_on":null,"dir":null,"label":"Latent","localized_name":"latent_image","locked":null,"name":"latent_image","nameLocked":null,"removable":null,"type":"LATENT","pos":null,"link":334}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Output","localized_name":"output","locked":null,"name":"output","nameLocked":null,"removable":null,"type":"LATENT","pos":null,"slot_index":null,"links":[199]},{"color_off":null,"color_on":null,"dir":null,"label":"Denoised Output","localized_name":"denoised_output","locked":null,"name":"denoised_output","nameLocked":null,"removable":null,"type":"LATENT","pos":null,"slot_index":null,"links":[]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"SamplerCustomAdvanced","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":119,"type":"GetImageSize","pos":[1240.95458984375,715.1303100585938],"size":[187.5,124.00003051757812],"flags":{"collapsed":true},"order":38,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":357}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Width","localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[210]},{"color_off":null,"color_on":null,"dir":null,"label":"Height","localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[212]},{"color_off":null,"color_on":null,"dir":null,"label":"batch_size","localized_name":"batch_size","locked":null,"name":"batch_size","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"GetImageSize","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":107,"type":"KSamplerSelect","pos":[1125.88525390625,358.92144775390625],"size":[270,58],"flags":{},"order":1,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"sampler_name","localized_name":"sampler_name","locked":null,"name":"sampler_name","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"sampler_name"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Sampler","localized_name":"SAMPLER","locked":null,"name":"SAMPLER","nameLocked":null,"removable":null,"type":"SAMPLER","pos":null,"slot_index":null,"links":[196]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"KSamplerSelect","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":["euler_ancestral"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":126,"type":"ReferenceLatent","pos":[870.9120483398438,302.3158874511719],"size":[210,46],"flags":{"collapsed":false},"order":44,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"conditioning","localized_name":"conditioning","locked":null,"name":"conditioning","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":236},{"color_off":null,"color_on":null,"dir":null,"label":"latent","localized_name":"latent","locked":null,"name":"latent","nameLocked":null,"removable":null,"shape":7,"type":"LATENT","pos":null,"link":235}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"CONDITIONING","localized_name":"CONDITIONING","locked":null,"name":"CONDITIONING","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"slot_index":null,"links":[320]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"ReferenceLatent","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":124,"type":"ReferenceLatent","pos":[890.9789428710938,469.9984436035156],"size":[204.134765625,46],"flags":{"collapsed":false},"order":43,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"conditioning","localized_name":"conditioning","locked":null,"name":"conditioning","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":237},{"color_off":null,"color_on":null,"dir":null,"label":"latent","localized_name":"latent","locked":null,"name":"latent","nameLocked":null,"removable":null,"shape":7,"type":"LATENT","pos":null,"link":234}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"CONDITIONING","localized_name":"CONDITIONING","locked":null,"name":"CONDITIONING","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"slot_index":null,"links":[321]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"ReferenceLatent","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":151,"type":"SolidMask","pos":[709.5845336914062,1478.765625],"size":[270,106],"flags":{"collapsed":true},"order":17,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"value","locked":null,"name":"value","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"value"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"width"},"link":311},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"height"},"link":312}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"MASK","locked":null,"name":"MASK","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[314]}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"SolidMask","widget_ue_connectable":{}},"widgets_values":[1,512,512],"color":"#2a363b","bgcolor":"#3f5159"},{"id":177,"type":"InvertMask","pos":[904.7615356445312,1349.8372802734375],"size":[140,26],"flags":{},"order":32,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":376}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"MASK","locked":null,"name":"MASK","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[377]}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"InvertMask","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":178,"type":"ImpactInt","pos":[199.7972412109375,972.335693359375],"size":[270,58],"flags":{},"order":2,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"value","locked":null,"name":"value","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"value"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Integer","localized_name":"INT","locked":null,"name":"INT","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[378,379]}],"properties":{"cnr_id":"comfyui-impact-pack","ver":"8.28.2","Node name for S&R":"ImpactInt","widget_ue_connectable":{}},"widgets_values":[1536],"color":"#2a363b","bgcolor":"#3f5159"},{"id":99,"type":"easy seed","pos":[1504.66796875,303.7991943359375],"size":[216.0924835205078,106],"flags":{"collapsed":true},"order":3,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"seed","localized_name":"seed","locked":null,"name":"seed","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"seed"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"seed","localized_name":"seed","locked":null,"name":"seed","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[204]}],"properties":{"cnr_id":"comfyui-easy-use","ver":"d9c2072a2de5f51ef9898ec50ccd4dda82e16126","Node name for S&R":"easy seed","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"widget_ue_connectable":{}},"widgets_values":[197413801361063,"randomize",null],"color":"#2a363b","bgcolor":"#3f5159"},{"id":102,"type":"ImagePadForOutpaint","pos":[556.6224975585938,1194.2225341796875],"size":[270,174],"flags":{},"order":29,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":308},{"color_off":null,"color_on":null,"dir":null,"label":"left","localized_name":"left","locked":null,"name":"left","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"left"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"top","localized_name":"top","locked":null,"name":"top","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"top"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"right","localized_name":"right","locked":null,"name":"right","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"right"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"bottom","localized_name":"bottom","locked":null,"name":"bottom","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"bottom"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"feathering","localized_name":"feathering","locked":null,"name":"feathering","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"feathering"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"IMAGE","locked":null,"name":"IMAGE","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[243]},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"MASK","locked":null,"name":"MASK","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[242,376]}],"properties":{"cnr_id":"comfy-core","ver":"0.9.2","Node name for S&R":"ImagePadForOutpaint","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"widget_ue_connectable":{}},"widgets_values":[200,0,200,0,0],"color":"#2a363b","bgcolor":"#3f5159"},{"id":127,"type":"ImageAndMaskPreview","pos":[848.7277221679688,1195.18798828125],"size":[270,126],"flags":{},"order":31,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":243},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"shape":7,"type":"MASK","pos":null,"link":242},{"color_off":null,"color_on":null,"dir":null,"label":"mask_opacity","localized_name":"mask_opacity","locked":null,"name":"mask_opacity","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"mask_opacity"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"mask_color","localized_name":"mask_color","locked":null,"name":"mask_color","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"mask_color"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"pass_through","localized_name":"pass_through","locked":null,"name":"pass_through","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"pass_through"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"composite","locked":null,"name":"composite","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[327]}],"properties":{"cnr_id":"comfyui-kjnodes","ver":"1.2.6","Node name for S&R":"ImageAndMaskPreview","widget_ue_connectable":{}},"widgets_values":[1,"0, 255, 0",true],"color":"#2a363b","bgcolor":"#3f5159"},{"id":129,"type":"ImageAndMaskPreview","pos":[863.2023315429688,707.4296875],"size":[270,126],"flags":{},"order":30,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":250},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"shape":7,"type":"MASK","pos":null,"link":251},{"color_off":null,"color_on":null,"dir":null,"label":"mask_opacity","localized_name":"mask_opacity","locked":null,"name":"mask_opacity","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"mask_opacity"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"mask_color","localized_name":"mask_color","locked":null,"name":"mask_color","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"mask_color"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"pass_through","localized_name":"pass_through","locked":null,"name":"pass_through","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"pass_through"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"composite","locked":null,"name":"composite","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[297,363]}],"properties":{"cnr_id":"comfyui-kjnodes","ver":"1.2.6","Node name for S&R":"ImageAndMaskPreview","widget_ue_connectable":{}},"widgets_values":[1,"0, 255, 0",true],"color":"#2a363b","bgcolor":"#3f5159"},{"id":150,"type":"GetImageSize","pos":[555.3795166015625,1492.156494140625],"size":[140,124],"flags":{"collapsed":true},"order":13,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":310}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Width","localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[311]},{"color_off":null,"color_on":null,"dir":null,"label":"Height","localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[312]},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"batch_size","locked":null,"name":"batch_size","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"GetImageSize","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":190,"type":"easy isMaskEmpty","pos":[851.937255859375,1023.3096313476562],"size":[140,26],"flags":{"collapsed":true},"order":24,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":442}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"boolean","localized_name":"boolean","locked":null,"name":"boolean","nameLocked":null,"removable":null,"type":"BOOLEAN","pos":null,"slot_index":null,"links":[410]}],"properties":{"cnr_id":"comfyui-easy-use","ver":"1.3.5","Node name for S&R":"easy isMaskEmpty","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":191,"type":"easy ifElse","pos":[1001.2195434570312,1024.6922607421875],"size":[210,78],"flags":{"collapsed":true},"order":27,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"on_true","localized_name":"on_true","locked":null,"name":"on_true","nameLocked":null,"removable":null,"type":"*","pos":null,"link":412},{"color_off":null,"color_on":null,"dir":null,"label":"on_false","localized_name":"on_false","locked":null,"name":"on_false","nameLocked":null,"removable":null,"type":"*","pos":null,"link":411},{"color_off":null,"color_on":null,"dir":null,"label":"boolean","localized_name":"boolean","locked":null,"name":"boolean","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"boolean"},"link":410}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"*","localized_name":"*","locked":null,"name":"*","nameLocked":null,"removable":null,"type":"*","pos":null,"slot_index":null,"links":[413]}],"properties":{"cnr_id":"comfyui-easy-use","ver":"1.3.5","Node name for S&R":"easy ifElse","widget_ue_connectable":{}},"widgets_values":[false],"color":"#2a363b","bgcolor":"#3f5159"},{"id":192,"type":"SolidMask","pos":[994.308349609375,970.093505859375],"size":[210,106],"flags":{"collapsed":true},"order":18,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"value","locked":null,"name":"value","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"value"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"width"},"link":415},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"height"},"link":416}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"MASK","locked":null,"name":"MASK","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[412]}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"SolidMask","widget_ue_connectable":{}},"widgets_values":[1,512,512],"color":"#2a363b","bgcolor":"#3f5159"},{"id":193,"type":"GetImageSize","pos":[864.4732666015625,956.69970703125],"size":[140,124],"flags":{"collapsed":true},"order":14,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":414}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Width","localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[415]},{"color_off":null,"color_on":null,"dir":null,"label":"Height","localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[416]},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"batch_size","locked":null,"name":"batch_size","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"GetImageSize","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":180,"type":"PreviewImage","pos":[2363.40966796875,1352.1710205078125],"size":[435.7750549316406,429.4188232421875],"flags":{},"order":56,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"images","locked":null,"name":"images","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":384}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"PreviewImage","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":156,"type":"InpaintModelConditioning","pos":[1422.8135986328125,371.12322998046875],"size":[210,138],"flags":{},"order":46,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Positive","localized_name":"positive","locked":null,"name":"positive","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":320},{"color_off":null,"color_on":null,"dir":null,"label":"Negative","localized_name":"negative","locked":null,"name":"negative","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"link":321},{"color_off":null,"color_on":null,"dir":null,"label":"VAE","localized_name":"vae","locked":null,"name":"vae","nameLocked":null,"removable":null,"type":"VAE","pos":null,"link":322},{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"pixels","locked":null,"name":"pixels","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":361},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":371},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"noise_mask","locked":null,"name":"noise_mask","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"noise_mask"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Positive","localized_name":"positive","locked":null,"name":"positive","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"slot_index":null,"links":[318]},{"color_off":null,"color_on":null,"dir":null,"label":"Negative","localized_name":"negative","locked":null,"name":"negative","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"slot_index":null,"links":[319]},{"color_off":null,"color_on":null,"dir":null,"label":"Latent","localized_name":"latent","locked":null,"name":"latent","nameLocked":null,"removable":null,"type":"LATENT","pos":null,"slot_index":null,"links":[334]}],"properties":{"cnr_id":"comfy-core","ver":"0.9.2","Node name for S&R":"InpaintModelConditioning","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"widget_ue_connectable":{}},"widgets_values":[false],"color":"#2a363b","bgcolor":"#3f5159"},{"id":125,"type":"VAEEncode","pos":[663.3829956054688,300.0797424316406],"size":[190,46],"flags":{"collapsed":false},"order":40,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"pixels","locked":null,"name":"pixels","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":389},{"color_off":null,"color_on":null,"dir":null,"label":"VAE","localized_name":"vae","locked":null,"name":"vae","nameLocked":null,"removable":null,"type":"VAE","pos":null,"link":239}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Latent","localized_name":"LATENT","locked":null,"name":"LATENT","nameLocked":null,"removable":null,"type":"LATENT","pos":null,"slot_index":null,"links":[234,235]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"VAEEncode","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":174,"type":"ImpactSwitch","pos":[1174.3583984375,893.0958251953125],"size":[270,122],"flags":{},"order":41,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Input 1","localized_name":"input1","locked":null,"name":"input1","nameLocked":null,"removable":null,"shape":7,"type":"*","pos":null,"link":369},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"select","locked":null,"name":"select","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"select"},"link":373},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"sel_mode","locked":null,"name":"sel_mode","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"sel_mode"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Input 2","locked":null,"name":"input2","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"link":370},{"color_off":null,"color_on":null,"dir":null,"label":"Input 3","locked":null,"name":"input3","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Value","localized_name":"selected_value","locked":null,"name":"selected_value","nameLocked":null,"removable":null,"type":"*","pos":null,"slot_index":null,"links":[371,387]},{"color_off":null,"color_on":null,"dir":null,"label":"Label","localized_name":"selected_label","locked":null,"name":"selected_label","nameLocked":null,"removable":null,"type":"STRING","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"selected_index","locked":null,"name":"selected_index","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui-impact-pack","ver":"8.28.2","Node name for S&R":"ImpactSwitch","widget_ue_connectable":{}},"widgets_values":[1,false],"color":"#2a363b","bgcolor":"#3f5159"},{"id":109,"type":"VAEDecode","pos":[1670.4912109375,108.57205963134766],"size":[220,46],"flags":{},"order":49,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Latent","localized_name":"samples","locked":null,"name":"samples","nameLocked":null,"removable":null,"type":"LATENT","pos":null,"link":199},{"color_off":null,"color_on":null,"dir":null,"label":"VAE","localized_name":"vae","locked":null,"name":"vae","nameLocked":null,"removable":null,"type":"VAE","pos":null,"link":200}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"IMAGE","locked":null,"name":"IMAGE","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":0,"links":[425]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"VAEDecode","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":100,"type":"ImageConcanate","pos":[1664.53564453125,427.16424560546875],"size":[270,102],"flags":{},"order":52,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image_1","localized_name":"image1","locked":null,"name":"image1","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":381},{"color_off":null,"color_on":null,"dir":null,"label":"Image_2","localized_name":"image2","locked":null,"name":"image2","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":422},{"color_off":null,"color_on":null,"dir":null,"label":"direction","localized_name":"direction","locked":null,"name":"direction","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"direction"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"match_image_size","localized_name":"match_image_size","locked":null,"name":"match_image_size","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"match_image_size"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"IMAGE","locked":null,"name":"IMAGE","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[180]}],"properties":{"cnr_id":"comfyui-kjnodes","ver":"1.2.6","Node name for S&R":"ImageConcanate","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"widget_ue_connectable":{}},"widgets_values":["right",true],"color":"#2a363b","bgcolor":"#3f5159"},{"id":154,"type":"PreviewImage","pos":[892.0179770116096,1525.1467960001598],"size":[140.853515625,246],"flags":{},"order":25,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"images","locked":null,"name":"images","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":316}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"PreviewImage","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":155,"type":"MaskPreview+","pos":[1045.7276327733284,1525.0268008829723],"size":[155.071875,246],"flags":{},"order":26,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":317}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui_essentials","ver":"1.1.0","Node name for S&R":"MaskPreview+","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":112,"type":"CLIPLoader","pos":[218.28323364257812,272.4344177246094],"size":[364.4270935058594,106],"flags":{},"order":4,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"clip_name","localized_name":"clip_name","locked":null,"name":"clip_name","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"clip_name"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"type","localized_name":"type","locked":null,"name":"type","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"type"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"device","localized_name":"device","locked":null,"name":"device","nameLocked":null,"removable":null,"shape":7,"type":"COMBO","widget":{"name":"device"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"CLIP","localized_name":"CLIP","locked":null,"name":"CLIP","nameLocked":null,"removable":null,"type":"CLIP","pos":null,"slot_index":null,"links":[428]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"CLIPLoader","models":[{"url":"https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors","name":"qwen_3_4b.safetensors","directory":"text_encoders"}],"tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":["qwen_3_4b.safetensors","flux2","default"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":168,"type":"GrowMaskWithBlur","pos":[1715.265869140625,1278.0787353515625],"size":[210,246],"flags":{},"order":37,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":354},{"color_off":null,"color_on":null,"dir":null,"label":"Expand","localized_name":"expand","locked":null,"name":"expand","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"expand"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Expand Rate","localized_name":"incremental_expandrate","locked":null,"name":"incremental_expandrate","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"incremental_expandrate"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Tapered Corners","localized_name":"tapered_corners","locked":null,"name":"tapered_corners","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"tapered_corners"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Flip Input","localized_name":"flip_input","locked":null,"name":"flip_input","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"flip_input"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Blur Radius","localized_name":"blur_radius","locked":null,"name":"blur_radius","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"blur_radius"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Lerp Alpha","localized_name":"lerp_alpha","locked":null,"name":"lerp_alpha","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"lerp_alpha"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Decay Factor","localized_name":"decay_factor","locked":null,"name":"decay_factor","nameLocked":null,"removable":null,"type":"FLOAT","widget":{"name":"decay_factor"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Fill Holes","localized_name":"fill_holes","locked":null,"name":"fill_holes","nameLocked":null,"removable":null,"shape":7,"type":"BOOLEAN","widget":{"name":"fill_holes"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[]},{"color_off":null,"color_on":null,"dir":null,"label":"Inverted Mask","localized_name":"mask_inverted","locked":null,"name":"mask_inverted","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[370]}],"properties":{"cnr_id":"comfyui-kjnodes","ver":"02657c3ae1a140bc4d6b6225845a4474b8632ef9","Node name for S&R":"GrowMaskWithBlur","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"widget_ue_connectable":{"expand":true,"fill_holes":true,"flip_input":true,"lerp_alpha":true,"blur_radius":true,"decay_factor":true,"tapered_corners":true,"incremental_expandrate":true}},"widgets_values":[-10,0,true,false,5,1,1,false],"color":"#2a363b","bgcolor":"#3f5159"},{"id":158,"type":"Any Switch (rgthree)","pos":[1197.26953125,1427.5440673828125],"size":[210,106],"flags":{},"order":34,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":3,"label":"Input_01","locked":null,"name":"any_01","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"link":377},{"color_off":null,"color_on":null,"dir":3,"label":"Input_02","locked":null,"name":"any_02","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"link":325},{"color_off":null,"color_on":null,"dir":3,"label":"Input_03","locked":null,"name":"any_03","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"link":null},{"color_off":null,"color_on":null,"dir":3,"label":"Input_04","locked":null,"name":"any_04","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"link":null},{"dir":3,"name":"any_05","type":"MASK","link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":4,"label":"MASK","locked":null,"name":"*","nameLocked":null,"removable":null,"shape":null,"type":"MASK","pos":null,"slot_index":null,"links":[353]}],"properties":{"cnr_id":"rgthree-comfy","ver":"1.0.2512112053","Node name for S&R":"Any Switch (rgthree)","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":159,"type":"Any Switch (rgthree)","pos":[1194.0447998046875,1270.50048828125],"size":[210,106],"flags":{},"order":33,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":3,"label":"Input_01","locked":null,"name":"any_01","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"link":327},{"color_off":null,"color_on":null,"dir":3,"label":"Input_02","locked":null,"name":"any_02","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"link":328},{"color_off":null,"color_on":null,"dir":3,"label":"Input_03","locked":null,"name":"any_03","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"link":null},{"color_off":null,"color_on":null,"dir":3,"label":"Input_04","locked":null,"name":"any_04","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"link":null},{"dir":3,"name":"any_05","type":"IMAGE","link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":4,"label":"IMAGE","locked":null,"name":"*","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[352]}],"properties":{"cnr_id":"rgthree-comfy","ver":"1.0.2512112053","Node name for S&R":"Any Switch (rgthree)","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":179,"type":"ImageConcanate","pos":[2064.1650390625,1372.5841064453125],"size":[270,102],"flags":{},"order":53,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image_1","localized_name":"image1","locked":null,"name":"image1","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":383},{"color_off":null,"color_on":null,"dir":null,"label":"Image_2","localized_name":"image2","locked":null,"name":"image2","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":423},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"direction","locked":null,"name":"direction","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"direction"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"match_image_size","locked":null,"name":"match_image_size","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"match_image_size"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"IMAGE","locked":null,"name":"IMAGE","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[384]}],"properties":{"cnr_id":"comfyui-kjnodes","ver":"1.2.6","Node name for S&R":"ImageConcanate","widget_ue_connectable":{}},"widgets_values":["right",true],"color":"#2a363b","bgcolor":"#3f5159"},{"id":145,"type":"PreviewImage","pos":[1466.773193359375,726.129638671875],"size":[210,258],"flags":{},"order":39,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"images","locked":null,"name":"images","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":360}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.9.1","Node name for S&R":"PreviewImage","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":183,"type":"MaskPreview+","pos":[1692.3057861328125,728.2032470703125],"size":[210,258],"flags":{},"order":45,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":387}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui_essentials","ver":"1.1.0","Node name for S&R":"MaskPreview+","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":101,"type":"PreviewImage","pos":[2190.665532017039,765.7041159903854],"size":[789.6109008789062,601.82861328125],"flags":{},"order":55,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"images","locked":null,"name":"images","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":180}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"image_urls","locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.9.2","Node name for S&R":"PreviewImage","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":117,"type":"CLIPTextEncode","pos":[713.4143676757812,111.6091079711914],"size":[281.6850280761719,88],"flags":{},"order":12,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"CLIP","localized_name":"clip","locked":null,"name":"clip","nameLocked":null,"removable":null,"type":"CLIP","pos":null,"link":428},{"color_off":null,"color_on":null,"dir":null,"label":"text","localized_name":"text","locked":null,"name":"text","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"text"},"link":309}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Conditioning","localized_name":"CONDITIONING","locked":null,"name":"CONDITIONING","nameLocked":null,"removable":null,"type":"CONDITIONING","pos":null,"slot_index":0,"links":[216,236]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"CLIPTextEncode","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":["Remove green areas"],"color":"#232","bgcolor":"#353"},{"id":170,"type":"LayerUtility: ImageScaleByAspectRatio V2","pos":[1428.3819580078125,1269.611328125],"size":[317.2681640625,330],"flags":{},"order":35,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":352},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"shape":7,"type":"MASK","pos":null,"link":353},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"aspect_ratio","locked":null,"name":"aspect_ratio","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"aspect_ratio"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"proportional_width","locked":null,"name":"proportional_width","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"proportional_width"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"proportional_height","locked":null,"name":"proportional_height","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"proportional_height"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"fit","locked":null,"name":"fit","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"fit"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"method","locked":null,"name":"method","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"method"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"round_to_multiple","locked":null,"name":"round_to_multiple","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"round_to_multiple"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"scale_to_side","locked":null,"name":"scale_to_side","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"scale_to_side"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"scale_to_length","locked":null,"name":"scale_to_length","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"scale_to_length"},"link":379},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"background_color","locked":null,"name":"background_color","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"background_color"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[364]},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[354]},{"color_off":null,"color_on":null,"dir":null,"label":"Original Size","localized_name":"original_size","locked":null,"name":"original_size","nameLocked":null,"removable":null,"type":"BOX","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui_layerstyle","ver":"2.0.37","Node name for S&R":"LayerUtility: ImageScaleByAspectRatio V2","widget_ue_connectable":{}},"widgets_values":["original",1,1,"letterbox","lanczos","16","longest",1536,"#000000"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":131,"type":"Image Comparer (rgthree)","pos":[2617.576171875,89.59085083007812],"size":[880.6697026146926,478.4847704261906],"flags":{},"order":54,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":3,"label":"Image_A","locked":null,"name":"image_a","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":429},{"color_off":null,"color_on":null,"dir":3,"label":"Image_B","locked":null,"name":"image_b","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":424}],"outputs":[{"color_off":null,"color_on":null,"dir":4,"label":"image_urls","locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":3,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"rgthree-comfy","ver":"1.0.2512112053","comparer_mode":"Slide","Node name for S&R":"Image Comparer (rgthree)","widget_ue_connectable":{}},"widgets_values":[[{"name":"A","selected":true,"url":"/api/view?filename=rgthree.compare._temp_ryhny_00009_.png&type=temp&subfolder=&rand=0.01101355120146763"},{"name":"B","selected":true,"url":"/api/view?filename=rgthree.compare._temp_ryhny_00010_.png&type=temp&subfolder=&rand=0.14883778331101216"}]],"color":"#2a363b","bgcolor":"#3f5159"},{"id":116,"type":"Flux2Scheduler","pos":[1125.88525390625,458.9213562011719],"size":[270,106],"flags":{},"order":42,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"steps","localized_name":"steps","locked":null,"name":"steps","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"steps"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"width","localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"width"},"link":210},{"color_off":null,"color_on":null,"dir":null,"label":"height","localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"height"},"link":212}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"SIGMAS","localized_name":"SIGMAS","locked":null,"name":"SIGMAS","nameLocked":null,"removable":null,"type":"SIGMAS","pos":null,"slot_index":null,"links":[197]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"Flux2Scheduler","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{"width":true,"height":true}},"widgets_values":[4,1024,1024],"color":"#2a363b","bgcolor":"#3f5159"},{"id":195,"type":"ColorMatch","pos":[1669.3757839811392,220.9688336799337],"size":[270,126],"flags":{},"order":50,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Reference Image","localized_name":"image_ref","locked":null,"name":"image_ref","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":426},{"color_off":null,"color_on":null,"dir":null,"label":"Target Image","localized_name":"image_target","locked":null,"name":"image_target","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":425},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"method","locked":null,"name":"method","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"method"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"strength","locked":null,"name":"strength","nameLocked":null,"removable":null,"shape":7,"type":"FLOAT","widget":{"name":"strength"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"multithread","locked":null,"name":"multithread","nameLocked":null,"removable":null,"shape":7,"type":"BOOLEAN","widget":{"name":"multithread"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[421,422,423,424]}],"properties":{"cnr_id":"comfyui-kjnodes","ver":"1.2.6","Node name for S&R":"ColorMatch","widget_ue_connectable":{}},"widgets_values":["mkl",0.4000000000000001,true],"color":"#2a363b","bgcolor":"#3f5159"},{"id":9,"type":"SaveImage","pos":[2028.1973543436466,228.0693766472213],"size":[577.848876953125,420.6419372558594],"flags":{},"order":51,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"images","locked":null,"name":"images","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"link":421},{"color_off":null,"color_on":null,"dir":null,"label":"filename_prefix","localized_name":"filename_prefix","locked":null,"name":"filename_prefix","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"filename_prefix"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"image_urls","locked":null,"name":"image_urls","nameLocked":null,"removable":null,"shape":null,"type":"STRING","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"SaveImage","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":["Flux2-Klein_out"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":149,"type":"Text Multiline","pos":[192.5779571533203,718.3665771484375],"size":[286.95111083984375,152.59854125976562],"flags":{},"order":5,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"text","locked":null,"name":"text","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"text"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"String","localized_name":"STRING","locked":null,"name":"STRING","nameLocked":null,"removable":null,"type":"STRING","pos":null,"slot_index":null,"links":[309]}],"properties":{"cnr_id":"was-ns","ver":"3.0.1","Node name for S&R":"Text Multiline","widget_ue_connectable":{}},"widgets_values":["put black industrial glove"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":111,"type":"UNETLoader","pos":[218.28323364257812,122.43441009521484],"size":[364.4270935058594,82],"flags":{},"order":6,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"unet_name","localized_name":"unet_name","locked":null,"name":"unet_name","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"unet_name"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"weight_dtype","localized_name":"weight_dtype","locked":null,"name":"weight_dtype","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"weight_dtype"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Model","localized_name":"MODEL","locked":null,"name":"MODEL","nameLocked":null,"removable":null,"type":"MODEL","pos":null,"slot_index":null,"links":[193]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"UNETLoader","models":[{"url":"https://huggingface.co/Comfy-Org/flux2-klein-4B/resolve/main/split_files/diffusion_models/flux-2-klein-4b.safetensors","name":"flux-2-klein-4b.safetensors","directory":"diffusion_models"}],"tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{}},"widgets_values":["flux-2-klein-4b.safetensors","default"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":200,"type":"SAM2ModelLoader (segment anything2)","pos":[-1066.788848252765,91.29579193086973],"size":[368.33331909179685,58],"flags":{},"order":7,"mode":0,"inputs":[{"localized_name":"model_name","name":"model_name","type":"COMBO","widget":{"name":"model_name"},"link":null}],"outputs":[{"localized_name":"SAM2_MODEL","name":"SAM2_MODEL","type":"SAM2_MODEL","links":[430]}],"properties":{"cnr_id":"comfyui-sam2","ver":"1.0.3","Node name for S&R":"SAM2ModelLoader (segment anything2)"},"widgets_values":["sam2_hiera_base_plus.pt"]},{"id":203,"type":"GroundingDinoModelLoader (segment anything2)","pos":[-1135.6193100521145,212.49725727320188],"size":[427.8833374023437,58],"flags":{},"order":8,"mode":0,"inputs":[{"localized_name":"model_name","name":"model_name","type":"COMBO","widget":{"name":"model_name"},"link":null}],"outputs":[{"localized_name":"GROUNDING_DINO_MODEL","name":"GROUNDING_DINO_MODEL","type":"GROUNDING_DINO_MODEL","links":[431]}],"properties":{"cnr_id":"comfyui-sam2","ver":"1.0.3","Node name for S&R":"GroundingDinoModelLoader (segment anything2)"},"widgets_values":["GroundingDINO_SwinB (938MB)"]},{"id":205,"type":"MaskPreview","pos":[-125.6070988660109,151.14836740856487],"size":[280.65355237258336,343.2186500317838],"flags":{},"order":20,"mode":0,"inputs":[{"localized_name":"mask","name":"mask","type":"MASK","link":434}],"outputs":[],"properties":{"cnr_id":"comfy-core","ver":"0.15.0","Node name for S&R":"MaskPreview"},"widgets_values":[]},{"id":204,"type":"PreviewImage","pos":[-114.08547808655479,-234.4518501064854],"size":[293.6714875389823,258],"flags":{},"order":19,"mode":0,"inputs":[{"localized_name":"images","name":"images","type":"IMAGE","link":433}],"outputs":[],"properties":{"cnr_id":"comfy-core","ver":"0.15.0","Node name for S&R":"PreviewImage"},"widgets_values":[]},{"id":161,"type":"ImpactInt","pos":[206.86402893066406,1148.2315673828125],"size":[270,58],"flags":{},"order":9,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"value","locked":null,"name":"value","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"value"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Integer","localized_name":"INT","locked":null,"name":"INT","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":[362,373]}],"properties":{"cnr_id":"comfyui-impact-pack","ver":"8.28.2","Node name for S&R":"ImpactInt","widget_ue_connectable":{}},"widgets_values":[1],"color":"#2a363b","bgcolor":"#3f5159"},{"id":171,"type":"ImpactSwitch","pos":[1176.0696734144092,712.1989135742189],"size":[270,122],"flags":{},"order":36,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Input 1","localized_name":"input1","locked":null,"name":"input1","nameLocked":null,"removable":null,"shape":7,"type":"*","pos":null,"link":363},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"select","locked":null,"name":"select","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"select"},"link":362},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"sel_mode","locked":null,"name":"sel_mode","nameLocked":null,"removable":null,"type":"BOOLEAN","widget":{"name":"sel_mode"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"Input 2","locked":null,"name":"input2","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"link":364},{"color_off":null,"color_on":null,"dir":null,"label":"Input 3","locked":null,"name":"input3","nameLocked":null,"removable":null,"shape":null,"type":"IMAGE","pos":null,"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Value","localized_name":"selected_value","locked":null,"name":"selected_value","nameLocked":null,"removable":null,"type":"*","pos":null,"slot_index":null,"links":[357,360,361,381,389]},{"color_off":null,"color_on":null,"dir":null,"label":"Label","localized_name":"selected_label","locked":null,"name":"selected_label","nameLocked":null,"removable":null,"type":"STRING","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"selected_index","locked":null,"name":"selected_index","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui-impact-pack","ver":"8.28.2","Node name for S&R":"ImpactSwitch","widget_ue_connectable":{}},"widgets_values":[1,false],"color":"#2a363b","bgcolor":"#3f5159"},{"id":152,"type":"LayerUtility: ImageScaleByAspectRatio V2","pos":[555.9345882794863,1469.187815942824],"size":[317.2681640625,330],"flags":{},"order":22,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":315},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"shape":7,"type":"MASK","pos":null,"link":314},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"aspect_ratio","locked":null,"name":"aspect_ratio","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"aspect_ratio"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"proportional_width","locked":null,"name":"proportional_width","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"proportional_width"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"proportional_height","locked":null,"name":"proportional_height","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"proportional_height"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"fit","locked":null,"name":"fit","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"fit"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"method","locked":null,"name":"method","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"method"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"round_to_multiple","locked":null,"name":"round_to_multiple","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"round_to_multiple"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"scale_to_side","locked":null,"name":"scale_to_side","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"scale_to_side"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"scale_to_length","locked":null,"name":"scale_to_length","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"scale_to_length"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"background_color","locked":null,"name":"background_color","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"background_color"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[316,328]},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[317,325]},{"color_off":null,"color_on":null,"dir":null,"label":"Original Size","localized_name":"original_size","locked":null,"name":"original_size","nameLocked":null,"removable":null,"type":"BOX","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":null,"localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui_layerstyle","ver":"2.0.37","Node name for S&R":"LayerUtility: ImageScaleByAspectRatio V2","widget_ue_connectable":{}},"widgets_values":["16:9",1,1,"letterbox","lanczos","16","longest",2048,"#00ff00"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":181,"type":"Mask Fill Holes","pos":[934.777587890625,884.0742797851562],"size":[140,26],"flags":{},"order":23,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"masks","locked":null,"name":"masks","nameLocked":null,"removable":null,"type":"MASK","pos":null,"link":440}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"MASKS","locked":null,"name":"MASKS","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[411]}],"properties":{"cnr_id":"was-ns","ver":"3.0.1","Node name for S&R":"Mask Fill Holes","widget_ue_connectable":{}},"widgets_values":[],"color":"#2a363b","bgcolor":"#3f5159"},{"id":128,"type":"LayerUtility: ImageScaleByAspectRatio V2","pos":[510.7315064133956,670.788979996498],"size":[317.2681640625,330],"flags":{},"order":28,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"shape":7,"type":"IMAGE","pos":null,"link":246},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"shape":7,"type":"MASK","pos":null,"link":413},{"color_off":null,"color_on":null,"dir":null,"label":"aspect_ratio","localized_name":"aspect_ratio","locked":null,"name":"aspect_ratio","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"aspect_ratio"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"proportional_width","localized_name":"proportional_width","locked":null,"name":"proportional_width","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"proportional_width"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"proportional_height","localized_name":"proportional_height","locked":null,"name":"proportional_height","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"proportional_height"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"fit","localized_name":"fit","locked":null,"name":"fit","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"fit"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"method","localized_name":"method","locked":null,"name":"method","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"method"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"round_to_multiple","localized_name":"round_to_multiple","locked":null,"name":"round_to_multiple","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"round_to_multiple"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"scale_to_side","localized_name":"scale_to_side","locked":null,"name":"scale_to_side","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"scale_to_side"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"scale_to_length","localized_name":"scale_to_length","locked":null,"name":"scale_to_length","nameLocked":null,"removable":null,"type":"INT","widget":{"name":"scale_to_length"},"link":378},{"color_off":null,"color_on":null,"dir":null,"label":"background_color","localized_name":"background_color","locked":null,"name":"background_color","nameLocked":null,"removable":null,"type":"STRING","widget":{"name":"background_color"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[250,308]},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"mask","locked":null,"name":"mask","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[251,369]},{"color_off":null,"color_on":null,"dir":null,"label":"Original Size","localized_name":"original_size","locked":null,"name":"original_size","nameLocked":null,"removable":null,"type":"BOX","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":"width","localized_name":"width","locked":null,"name":"width","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null},{"color_off":null,"color_on":null,"dir":null,"label":"height","localized_name":"height","locked":null,"name":"height","nameLocked":null,"removable":null,"type":"INT","pos":null,"slot_index":null,"links":null}],"properties":{"cnr_id":"comfyui_layerstyle","ver":"2.0.37","Node name for S&R":"LayerUtility: ImageScaleByAspectRatio V2","widget_ue_connectable":{}},"widgets_values":["original",1,1,"letterbox","lanczos","16","longest",1536,"#00ff00"],"color":"#2a363b","bgcolor":"#3f5159"},{"id":209,"type":"ImpactSwitch","pos":[-476.1935597266089,823.4424214617741],"size":[270,122],"flags":{},"order":21,"mode":0,"inputs":[{"localized_name":"input1","name":"input1","shape":7,"type":"MASK","link":438},{"localized_name":"select","name":"select","type":"INT","widget":{"name":"select"},"link":null},{"localized_name":"sel_mode","name":"sel_mode","type":"BOOLEAN","widget":{"name":"sel_mode"},"link":null},{"name":"input2","type":"MASK","link":439},{"name":"input3","type":"MASK","link":null}],"outputs":[{"label":"MASK","localized_name":"selected_value","name":"MASK","type":"MASK","links":[440,442]},{"localized_name":"selected_label","name":"selected_label","type":"STRING","links":null},{"localized_name":"selected_index","name":"selected_index","type":"INT","links":null}],"title":"Automask switch","properties":{"cnr_id":"comfyui-impact-pack","ver":"8.28.2","Node name for S&R":"ImpactSwitch"},"widgets_values":[2,false]},{"id":201,"type":"GroundingDinoSAM2Segment (segment anything2)","pos":[-623.8797897178217,101.7699926394667],"size":[439.2500061035156,122],"flags":{},"order":15,"mode":0,"inputs":[{"localized_name":"sam_model","name":"sam_model","type":"SAM2_MODEL","link":430},{"localized_name":"grounding_dino_model","name":"grounding_dino_model","type":"GROUNDING_DINO_MODEL","link":431},{"localized_name":"image","name":"image","type":"IMAGE","link":436},{"localized_name":"prompt","name":"prompt","type":"STRING","widget":{"name":"prompt"},"link":null},{"localized_name":"threshold","name":"threshold","type":"FLOAT","widget":{"name":"threshold"},"link":null}],"outputs":[{"localized_name":"IMAGE","name":"IMAGE","type":"IMAGE","links":[433]},{"localized_name":"MASK","name":"MASK","type":"MASK","links":[434,439]}],"properties":{"cnr_id":"comfyui-sam2","ver":"1.0.3","Node name for S&R":"GroundingDinoSAM2Segment (segment anything2)"},"widgets_values":["hand",0.39]},{"id":76,"type":"LoadImage","pos":[-82.55462799930984,705.0911331844086],"size":[243.3503821539653,563.6552909082986],"flags":{},"order":10,"mode":0,"inputs":[{"color_off":null,"color_on":null,"dir":null,"label":"image","localized_name":"image","locked":null,"name":"image","nameLocked":null,"removable":null,"type":"COMBO","widget":{"name":"image"},"link":null},{"color_off":null,"color_on":null,"dir":null,"label":"upload","localized_name":"choose file to upload","locked":null,"name":"upload","nameLocked":null,"removable":null,"type":"IMAGEUPLOAD","widget":{"name":"upload"},"link":null}],"outputs":[{"color_off":null,"color_on":null,"dir":null,"label":"Image","localized_name":"IMAGE","locked":null,"name":"IMAGE","nameLocked":null,"removable":null,"type":"IMAGE","pos":null,"slot_index":null,"links":[246,310,315,383,414,426,429,436]},{"color_off":null,"color_on":null,"dir":null,"label":"Mask","localized_name":"MASK","locked":null,"name":"MASK","nameLocked":null,"removable":null,"type":"MASK","pos":null,"slot_index":null,"links":[438]}],"properties":{"cnr_id":"comfy-core","ver":"0.8.2","Node name for S&R":"LoadImage","tabWidth":65,"enableTabs":false,"tabXOffset":10,"hasSecondTab":false,"secondTabText":"Send Back","ue_properties":{"version":"7.5.2","widget_ue_connectable":{},"input_ue_unconnectable":{}},"secondTabWidth":65,"secondTabOffset":80,"widget_ue_connectable":{},"image":"clipspace/clipspace-painted-masked-1772541483263.png [input]"},"widgets_values":["frame_000704.PNG","image"],"color":"#2a363b","bgcolor":"#3f5159"}],"links":[[180,100,0,101,0,"IMAGE"],[193,111,0,115,0,"MODEL"],[194,110,0,108,0,"NOISE"],[195,115,0,108,1,"GUIDER"],[196,107,0,108,2,"SAMPLER"],[197,116,0,108,3,"SIGMAS"],[199,108,0,109,0,"LATENT"],[200,113,0,109,1,"VAE"],[204,99,0,110,0,"INT"],[210,119,0,116,1,"INT"],[212,119,1,116,2,"INT"],[216,117,0,118,0,"CONDITIONING"],[234,125,0,124,1,"LATENT"],[235,125,0,126,1,"LATENT"],[236,117,0,126,0,"CONDITIONING"],[237,118,0,124,0,"CONDITIONING"],[239,113,0,125,1,"VAE"],[242,102,1,127,1,"MASK"],[243,102,0,127,0,"IMAGE"],[246,76,0,128,0,"IMAGE"],[250,128,0,129,0,"IMAGE"],[251,128,1,129,1,"MASK"],[297,129,0,141,0,"IMAGE"],[308,128,0,102,0,"IMAGE"],[309,149,0,117,1,"STRING"],[310,76,0,150,0,"IMAGE"],[311,150,0,151,1,"INT"],[312,150,1,151,2,"INT"],[314,151,0,152,1,"MASK"],[315,76,0,152,0,"IMAGE"],[316,152,0,154,0,"IMAGE"],[317,152,1,155,0,"MASK"],[318,156,0,115,1,"CONDITIONING"],[319,156,1,115,2,"CONDITIONING"],[320,126,0,156,0,"CONDITIONING"],[321,124,0,156,1,"CONDITIONING"],[322,113,0,156,2,"VAE"],[325,152,1,158,1,"MASK"],[327,127,0,159,0,"*"],[328,152,0,159,1,"IMAGE"],[334,156,2,108,4,"LATENT"],[352,159,0,170,0,"IMAGE"],[353,158,0,170,1,"MASK"],[354,170,1,168,0,"MASK"],[357,171,0,119,0,"IMAGE"],[360,171,0,145,0,"IMAGE"],[361,171,0,156,3,"IMAGE"],[362,161,0,171,1,"INT"],[363,129,0,171,0,"IMAGE"],[364,170,0,171,3,"IMAGE"],[369,128,1,174,0,"*"],[370,168,1,174,3,"MASK"],[371,174,0,156,4,"MASK"],[373,161,0,174,1,"INT"],[376,102,1,177,0,"MASK"],[377,177,0,158,0,"MASK"],[378,178,0,128,9,"INT"],[379,178,0,170,9,"INT"],[381,171,0,100,0,"IMAGE"],[383,76,0,179,0,"IMAGE"],[384,179,0,180,0,"IMAGE"],[387,174,0,183,0,"MASK"],[389,171,0,125,0,"IMAGE"],[410,190,0,191,2,"BOOLEAN"],[411,181,0,191,1,"*"],[412,192,0,191,0,"*"],[413,191,0,128,1,"MASK"],[414,76,0,193,0,"IMAGE"],[415,193,0,192,1,"INT"],[416,193,1,192,2,"INT"],[421,195,0,9,0,"IMAGE"],[422,195,0,100,1,"IMAGE"],[423,195,0,179,1,"IMAGE"],[424,195,0,131,1,"IMAGE"],[425,109,0,195,1,"IMAGE"],[426,76,0,195,0,"IMAGE"],[428,112,0,117,0,"CLIP"],[429,76,0,131,0,"IMAGE"],[430,200,0,201,0,"SAM2_MODEL"],[431,203,0,201,1,"GROUNDING_DINO_MODEL"],[433,201,0,204,0,"IMAGE"],[434,201,1,205,0,"MASK"],[436,76,0,201,2,"IMAGE"],[438,76,1,209,0,"MASK"],[439,201,1,209,3,"MASK"],[440,209,0,181,0,"MASK"],[442,209,0,190,0,"MASK"]],"groups":[{"id":1,"title":"Models","bounding":[214.6165771484375,38.573265075683594,383.8011474609375,532.5145874023438],"color":"#3f789e","font_size":24,"flags":{}},{"id":2,"title":"Prompt","bounding":[630.0169677734375,39.493125915527344,473.1415100097656,534.9209594726562],"color":"#3f789e","font_size":24,"flags":{}},{"id":3,"title":"Sampler","bounding":[1126.2186279296875,34.893699645996094,828.855224609375,537.8363037109375],"color":"#3f789e","font_size":24,"flags":{}},{"id":4,"title":"Inpainting","bounding":[526.9647216796875,624.9658813476562,618.859375,413.6000061035156],"color":"#3f789e","font_size":24,"flags":{}},{"id":5,"title":"Outpaint: Manual","bounding":[546.6224975585938,1120.62255859375,582.105224609375,257.6000061035156],"color":"#3f789e","font_size":24,"flags":{}},{"id":9,"title":"Switch","bounding":[1161.413330078125,631.4774780273438,790.0171508789062,396.7447509765625],"color":"#3f789e","font_size":24,"flags":{}},{"id":11,"title":"Outpaint Module","bounding":[535.3795166015625,1077.0225830078125,1399.8863525390625,741.7158203125],"color":"#3f789e","font_size":24,"flags":{}},{"id":10,"title":"Outpaint: By Ratio","bounding":[545.3795166015625,1395.138427734375,596.96484375,413.6000061035156],"color":"#3f789e","font_size":24,"flags":{}},{"id":14,"title":"Input Parameters","bounding":[-111.10853576660156,626.563720703125,609.2858276367188,666.9962768554688],"color":"#3f789e","font_size":24,"flags":{}},{"id":12,"title":"Long Side Scale Limit","bounding":[189.79725646972656,898.7357177734375,290,141.60000610351562],"color":"#3f789e","font_size":24,"flags":{}},{"id":13,"title":"Switch 1: Inpaint, 2: Outpaint","bounding":[198.17730712890625,1057.5587158203125,288.0300598144531,173.7757568359375],"color":"#3f789e","font_size":24,"flags":{}}],"config":{},"extra":{"ds":{"scale":0.6075534105827711,"offset":[-53.14261779812639,170.70885722274227]},"ue_links":[],"0246.VERSION":[0,0,4],"frontendVersion":"1.36.14","VHS_MetadataImage":true,"VHS_latentpreview":true,"links_added_by_ue":[],"VHS_KeepIntermediate":true,"VHS_latentpreviewrate":0,"workflowRendererVersion":"LG"},"version":0.4}
+{
+  "9": {
+    "inputs": {
+      "filename_prefix": "Flux2-Klein_out",
+      "images": [
+        "195",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "76": {
+    "inputs": {
+      "image": "frame_000704.PNG"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "99": {
+    "inputs": {
+      "seed": 197413801361063
+    },
+    "class_type": "easy seed",
+    "_meta": {
+      "title": "EasySeed"
+    }
+  },
+  "100": {
+    "inputs": {
+      "direction": "right",
+      "match_image_size": true,
+      "image1": [
+        "171",
+        0
+      ],
+      "image2": [
+        "195",
+        0
+      ]
+    },
+    "class_type": "ImageConcanate",
+    "_meta": {
+      "title": "Image Concatenate"
+    }
+  },
+  "101": {
+    "inputs": {
+      "images": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "102": {
+    "inputs": {
+      "left": 200,
+      "top": 0,
+      "right": 200,
+      "bottom": 0,
+      "feathering": 0,
+      "image": [
+        "128",
+        0
+      ]
+    },
+    "class_type": "ImagePadForOutpaint",
+    "_meta": {
+      "title": "Pad Image for Outpainting"
+    }
+  },
+  "107": {
+    "inputs": {
+      "sampler_name": "euler_ancestral"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "108": {
+    "inputs": {
+      "noise": [
+        "110",
+        0
+      ],
+      "guider": [
+        "115",
+        0
+      ],
+      "sampler": [
+        "107",
+        0
+      ],
+      "sigmas": [
+        "116",
+        0
+      ],
+      "latent_image": [
+        "156",
+        2
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "109": {
+    "inputs": {
+      "samples": [
+        "108",
+        0
+      ],
+      "vae": [
+        "113",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "110": {
+    "inputs": {
+      "noise_seed": [
+        "99",
+        0
+      ]
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "111": {
+    "inputs": {
+      "unet_name": "flux-2-klein-4b.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "112": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "113": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "115": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "111",
+        0
+      ],
+      "positive": [
+        "156",
+        0
+      ],
+      "negative": [
+        "156",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFGGuider"
+    }
+  },
+  "116": {
+    "inputs": {
+      "steps": 4,
+      "width": [
+        "119",
+        0
+      ],
+      "height": [
+        "119",
+        1
+      ]
+    },
+    "class_type": "Flux2Scheduler",
+    "_meta": {
+      "title": "Flux2Scheduler"
+    }
+  },
+  "117": {
+    "inputs": {
+      "text": [
+        "149",
+        0
+      ],
+      "clip": [
+        "112",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "118": {
+    "inputs": {
+      "conditioning": [
+        "117",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "119": {
+    "inputs": {
+      "image": [
+        "171",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "124": {
+    "inputs": {
+      "conditioning": [
+        "118",
+        0
+      ],
+      "latent": [
+        "125",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "ReferenceLatent"
+    }
+  },
+  "125": {
+    "inputs": {
+      "pixels": [
+        "171",
+        0
+      ],
+      "vae": [
+        "113",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "126": {
+    "inputs": {
+      "conditioning": [
+        "117",
+        0
+      ],
+      "latent": [
+        "125",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "ReferenceLatent"
+    }
+  },
+  "127": {
+    "inputs": {
+      "mask_opacity": 1,
+      "mask_color": "0, 255, 0",
+      "pass_through": true,
+      "image": [
+        "102",
+        0
+      ],
+      "mask": [
+        "102",
+        1
+      ]
+    },
+    "class_type": "ImageAndMaskPreview",
+    "_meta": {
+      "title": "ImageAndMaskPreview"
+    }
+  },
+  "128": {
+    "inputs": {
+      "aspect_ratio": "original",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "letterbox",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": [
+        "178",
+        0
+      ],
+      "background_color": "#00ff00",
+      "image": [
+        "76",
+        0
+      ],
+      "mask": [
+        "191",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2",
+    "_meta": {
+      "title": "LayerUtility: ImageScaleByAspectRatio V2"
+    }
+  },
+  "129": {
+    "inputs": {
+      "mask_opacity": 1,
+      "mask_color": "0, 255, 0",
+      "pass_through": true,
+      "image": [
+        "128",
+        0
+      ],
+      "mask": [
+        "128",
+        1
+      ]
+    },
+    "class_type": "ImageAndMaskPreview",
+    "_meta": {
+      "title": "ImageAndMaskPreview"
+    }
+  },
+  "131": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_ryhny_00009_.png&type=temp&subfolder=&rand=0.01101355120146763"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_ryhny_00010_.png&type=temp&subfolder=&rand=0.14883778331101216"
+          }
+        ]
+      },
+      "image_a": [
+        "76",
+        0
+      ],
+      "image_b": [
+        "195",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "Image Comparer (rgthree)"
+    }
+  },
+  "145": {
+    "inputs": {
+      "images": [
+        "171",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "149": {
+    "inputs": {
+      "text": "put black industrial glove"
+    },
+    "class_type": "Text Multiline",
+    "_meta": {
+      "title": "Text Multiline"
+    }
+  },
+  "150": {
+    "inputs": {
+      "image": [
+        "76",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "151": {
+    "inputs": {
+      "value": 1,
+      "width": [
+        "150",
+        0
+      ],
+      "height": [
+        "150",
+        1
+      ]
+    },
+    "class_type": "SolidMask",
+    "_meta": {
+      "title": "SolidMask"
+    }
+  },
+  "152": {
+    "inputs": {
+      "aspect_ratio": "16:9",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "letterbox",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": 2048,
+      "background_color": "#00ff00",
+      "image": [
+        "76",
+        0
+      ],
+      "mask": [
+        "151",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2",
+    "_meta": {
+      "title": "LayerUtility: ImageScaleByAspectRatio V2"
+    }
+  },
+  "154": {
+    "inputs": {
+      "images": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "155": {
+    "inputs": {
+      "mask": [
+        "152",
+        1
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
+  "156": {
+    "inputs": {
+      "noise_mask": false,
+      "positive": [
+        "126",
+        0
+      ],
+      "negative": [
+        "124",
+        0
+      ],
+      "vae": [
+        "113",
+        0
+      ],
+      "pixels": [
+        "171",
+        0
+      ],
+      "mask": [
+        "174",
+        0
+      ]
+    },
+    "class_type": "InpaintModelConditioning",
+    "_meta": {
+      "title": "InpaintModelConditioning"
+    }
+  },
+  "158": {
+    "inputs": {
+      "any_01": [
+        "177",
+        0
+      ],
+      "any_02": [
+        "152",
+        1
+      ]
+    },
+    "class_type": "Any Switch (rgthree)",
+    "_meta": {
+      "title": "Any Switch (rgthree)"
+    }
+  },
+  "159": {
+    "inputs": {
+      "any_01": [
+        "127",
+        0
+      ],
+      "any_02": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "Any Switch (rgthree)",
+    "_meta": {
+      "title": "Any Switch (rgthree)"
+    }
+  },
+  "161": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "ImpactInt",
+    "_meta": {
+      "title": "ImpactInt"
+    }
+  },
+  "168": {
+    "inputs": {
+      "expand": -10,
+      "incremental_expandrate": 0,
+      "tapered_corners": true,
+      "flip_input": false,
+      "blur_radius": 5,
+      "lerp_alpha": 1,
+      "decay_factor": 1,
+      "fill_holes": false,
+      "mask": [
+        "170",
+        1
+      ]
+    },
+    "class_type": "GrowMaskWithBlur",
+    "_meta": {
+      "title": "Grow Mask With Blur"
+    }
+  },
+  "170": {
+    "inputs": {
+      "aspect_ratio": "original",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "letterbox",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": [
+        "178",
+        0
+      ],
+      "background_color": "#000000",
+      "image": [
+        "159",
+        0
+      ],
+      "mask": [
+        "158",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2",
+    "_meta": {
+      "title": "LayerUtility: ImageScaleByAspectRatio V2"
+    }
+  },
+  "171": {
+    "inputs": {
+      "select": [
+        "161",
+        0
+      ],
+      "sel_mode": false,
+      "input1": [
+        "129",
+        0
+      ],
+      "input2": [
+        "170",
+        0
+      ]
+    },
+    "class_type": "ImpactSwitch",
+    "_meta": {
+      "title": "Switch (Any)"
+    }
+  },
+  "174": {
+    "inputs": {
+      "select": [
+        "161",
+        0
+      ],
+      "sel_mode": false,
+      "input1": [
+        "128",
+        1
+      ],
+      "input2": [
+        "168",
+        1
+      ]
+    },
+    "class_type": "ImpactSwitch",
+    "_meta": {
+      "title": "Switch (Any)"
+    }
+  },
+  "177": {
+    "inputs": {
+      "mask": [
+        "102",
+        1
+      ]
+    },
+    "class_type": "InvertMask",
+    "_meta": {
+      "title": "InvertMask"
+    }
+  },
+  "178": {
+    "inputs": {
+      "value": 1536
+    },
+    "class_type": "ImpactInt",
+    "_meta": {
+      "title": "ImpactInt"
+    }
+  },
+  "179": {
+    "inputs": {
+      "direction": "right",
+      "match_image_size": true,
+      "image1": [
+        "76",
+        0
+      ],
+      "image2": [
+        "195",
+        0
+      ]
+    },
+    "class_type": "ImageConcanate",
+    "_meta": {
+      "title": "Image Concatenate"
+    }
+  },
+  "180": {
+    "inputs": {
+      "images": [
+        "179",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "181": {
+    "inputs": {
+      "masks": [
+        "209",
+        0
+      ]
+    },
+    "class_type": "Mask Fill Holes",
+    "_meta": {
+      "title": "Mask Fill Holes"
+    }
+  },
+  "183": {
+    "inputs": {
+      "mask": [
+        "174",
+        0
+      ]
+    },
+    "class_type": "MaskPreview+",
+    "_meta": {
+      "title": "🔧 Mask Preview"
+    }
+  },
+  "190": {
+    "inputs": {
+      "mask": [
+        "209",
+        0
+      ]
+    },
+    "class_type": "easy isMaskEmpty",
+    "_meta": {
+      "title": "Is Mask Empty"
+    }
+  },
+  "191": {
+    "inputs": {
+      "boolean": [
+        "190",
+        0
+      ],
+      "on_true": [
+        "192",
+        0
+      ],
+      "on_false": [
+        "181",
+        0
+      ]
+    },
+    "class_type": "easy ifElse",
+    "_meta": {
+      "title": "If else"
+    }
+  },
+  "192": {
+    "inputs": {
+      "value": 1,
+      "width": [
+        "193",
+        0
+      ],
+      "height": [
+        "193",
+        1
+      ]
+    },
+    "class_type": "SolidMask",
+    "_meta": {
+      "title": "SolidMask"
+    }
+  },
+  "193": {
+    "inputs": {
+      "image": [
+        "76",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
+    }
+  },
+  "195": {
+    "inputs": {
+      "method": "mkl",
+      "strength": 0.4000000000000001,
+      "multithread": true,
+      "image_ref": [
+        "76",
+        0
+      ],
+      "image_target": [
+        "109",
+        0
+      ]
+    },
+    "class_type": "ColorMatch",
+    "_meta": {
+      "title": "Color Match"
+    }
+  },
+  "200": {
+    "inputs": {
+      "model_name": "sam2_hiera_base_plus.pt"
+    },
+    "class_type": "SAM2ModelLoader (segment anything2)",
+    "_meta": {
+      "title": "SAM2ModelLoader (segment anything2)"
+    }
+  },
+  "201": {
+    "inputs": {
+      "prompt": "hand",
+      "threshold": 0.39,
+      "sam_model": [
+        "200",
+        0
+      ],
+      "grounding_dino_model": [
+        "203",
+        0
+      ],
+      "image": [
+        "76",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "203": {
+    "inputs": {
+      "model_name": "GroundingDINO_SwinB (938MB)"
+    },
+    "class_type": "GroundingDinoModelLoader (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoModelLoader (segment anything2)"
+    }
+  },
+  "204": {
+    "inputs": {
+      "images": [
+        "201",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "205": {
+    "inputs": {
+      "mask": [
+        "201",
+        1
+      ]
+    },
+    "class_type": "MaskPreview",
+    "_meta": {
+      "title": "Preview Mask"
+    }
+  },
+  "209": {
+    "inputs": {
+      "select": 2,
+      "sel_mode": false,
+      "input1": [
+        "76",
+        1
+      ],
+      "input2": [
+        "201",
+        1
+      ]
+    },
+    "class_type": "ImpactSwitch",
+    "_meta": {
+      "title": "Automask switch"
+    }
+  },
+  "210": {
+    "inputs": {
+      "filename_prefix": "mask_out",
+      "images": [
+        "211",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "211": {
+    "inputs": {
+      "mask": [
+        "201",
+        1
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "Convert Mask to Image"
+    }
+  }
+}

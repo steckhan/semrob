@@ -18,6 +18,7 @@ export function batchPath(batchId: string): string {
 export async function readBatch(batchId: string): Promise<BatchRecord | null> {
   try {
     const payload = await fs.readFile(batchPath(batchId), "utf8");
+    if (!payload.trim()) return null;
     return JSON.parse(payload) as BatchRecord;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;

@@ -207,11 +207,16 @@ export function patchWorkflow({
     }
   }
 
-  // SAM2 segmentation prompt
-  if (resolvedTargets.sam2PromptNodeId && params.automaskMode === "auto" && params.sam2Prompt) {
+  // SAM2 segmentation prompt and threshold
+  if (resolvedTargets.sam2PromptNodeId && params.automaskMode === "auto") {
     const sam2Node = patched[resolvedTargets.sam2PromptNodeId];
     if (sam2Node?.inputs) {
-      sam2Node.inputs.prompt = params.sam2Prompt;
+      if (params.sam2Prompt) {
+        sam2Node.inputs.prompt = params.sam2Prompt;
+      }
+      if (params.sam2Threshold !== undefined) {
+        sam2Node.inputs.threshold = params.sam2Threshold;
+      }
     }
   }
 

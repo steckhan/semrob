@@ -15,6 +15,7 @@ export type InpaintParams = {
   negativePrompt: string;
   automaskMode?: "manual" | "auto";
   sam2Prompt?: string;
+  sam2Threshold?: number;
 };
 
 export type WorkflowDefinition = {

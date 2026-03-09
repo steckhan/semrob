@@ -22,6 +22,9 @@ type BatchPanelProps = {
   onRun: () => void;
   onNew: () => void;
   singleJobActive: boolean;
+  automaskMode?: "manual" | "auto";
+  maskUrls?: (string | null)[];
+  onMaskLightbox?: (url: string, caption: string) => void;
 };
 
 export default function BatchPanel({
@@ -37,14 +40,18 @@ export default function BatchPanel({
   onRun,
   onNew,
   singleJobActive,
+  automaskMode,
+  maskUrls,
+  onMaskLightbox,
 }: BatchPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
+  const isAutoMask = automaskMode === "auto";
   const maskedCount = images.filter((img) => img.maskDataUrl !== null).length;
-  const allMasked = images.length > 0 && maskedCount === images.length;
+  const allMasked = images.length > 0 && (isAutoMask || maskedCount === images.length);
 
-  const nextUnmaskedIndex = images.findIndex((img) => img.maskDataUrl === null);
+  const nextUnmaskedIndex = isAutoMask ? -1 : images.findIndex((img) => img.maskDataUrl === null);
 
   function handleFileInput(files: FileList | null) {
     if (!files) return;
@@ -65,8 +72,6 @@ export default function BatchPanel({
     ? uploadProgress
       ? `Uploading… ${uploadProgress.uploaded}/${uploadProgress.total}`
       : "Processing…"
-    : batchStatus?.status === "completed"
-    ? "✓ Done"
     : `▶ Run Batch (${images.length} images)`;
 
   return (
@@ -126,31 +131,38 @@ export default function BatchPanel({
             <span className="batch-summary-label">Images</span>
             <span className="batch-summary-val">{images.length}</span>
           </div>
-          <div className="batch-summary-row">
-            <span className="batch-summary-label">Masked</span>
-            <span
-              className="batch-summary-val"
-              style={{ color: allMasked ? "var(--green)" : "var(--orange)" }}
-            >
-              {maskedCount} / {images.length}
-            </span>
-          </div>
-          {/* Masking progress bar */}
-          <div className="batch-progress-bar-track">
-            <div
-              className="batch-progress-bar-fill"
-              style={{ width: `${images.length > 0 ? (maskedCount / images.length) * 100 : 0}%` }}
-            />
-          </div>
-
-          {/* Jump to next unmasked */}
-          {nextUnmaskedIndex !== -1 && (
-            <button
-              className="batch-jump-btn"
-              onClick={() => onImageSelect(nextUnmaskedIndex)}
-            >
-              → Jump to next unmasked ({nextUnmaskedIndex + 1})
-            </button>
+          {isAutoMask ? (
+            <p className="hint" style={{ color: "var(--accent-light)", marginBottom: 2 }}>
+              SAM2 auto-mask active — no manual masking needed
+            </p>
+          ) : (
+            <>
+              <div className="batch-summary-row">
+                <span className="batch-summary-label">Masked</span>
+                <span
+                  className="batch-summary-val"
+                  style={{ color: allMasked ? "var(--green)" : "var(--orange)" }}
+                >
+                  {maskedCount} / {images.length}
+                </span>
+              </div>
+              {/* Masking progress bar */}
+              <div className="batch-progress-bar-track">
+                <div
+                  className="batch-progress-bar-fill"
+                  style={{ width: `${images.length > 0 ? (maskedCount / images.length) * 100 : 0}%` }}
+                />
+              </div>
+              {/* Jump to next unmasked */}
+              {nextUnmaskedIndex !== -1 && (
+                <button
+                  className="batch-jump-btn"
+                  onClick={() => onImageSelect(nextUnmaskedIndex)}
+                >
+                  → Jump to next unmasked ({nextUnmaskedIndex + 1})
+                </button>
+              )}
+            </>
           )}
 
           {/* Navigation */}
@@ -233,8 +245,20 @@ export default function BatchPanel({
               title={img.file.name}
             >
               <img src={img.previewUrl} alt={img.file.name} />
+              {maskUrls?.[idx] && (
+                <img
+                  src={maskUrls[idx]!}
+                  alt="SAM2 mask"
+                  className="batch-mask-thumb"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMaskLightbox?.(maskUrls[idx]!, `SAM2 mask · ${img.file.name}`);
+                  }}
+                  style={onMaskLightbox ? { cursor: "zoom-in" } : undefined}
+                />
+              )}
               <div className="batch-thumb-status">
-                {img.maskDataUrl ? "✓" : "○"}
+                {maskUrls?.[idx] ? "✓" : img.maskDataUrl ? "✓" : isAutoMask ? "⟳" : "○"}
               </div>
               {!isRunning && (
                 <button
@@ -258,7 +282,7 @@ export default function BatchPanel({
       {/* Run button at bottom */}
       {images.length > 0 && (
         <div className="batch-run-footer">
-          {!allMasked && !isRunning && batchStatus?.status !== "completed" && (
+          {!allMasked && !isAutoMask && !isRunning && batchStatus?.status !== "completed" && (
             <p className="hint" style={{ marginBottom: 6, textAlign: "center" }}>
               Mask all {images.length - maskedCount} remaining image{images.length - maskedCount !== 1 ? "s" : ""} to enable Run.
             </p>
@@ -272,7 +296,7 @@ export default function BatchPanel({
             <button
               className={`btn-run${isRunning ? " running" : ""}`}
               style={{ flex: 1 }}
-              disabled={!allMasked || isRunning || batchStatus?.status === "completed" || singleJobActive}
+              disabled={!allMasked || isRunning || singleJobActive}
               onClick={onRun}
             >
               {runLabel}
