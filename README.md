@@ -1,13 +1,22 @@
-# ComfyUI Inpaint Studio
+# SemProbe — Semantic Robustness Probing via Controlled Inpainting
 
-A local web UI for AI-powered inpainting built on top of [ComfyUI](https://github.com/comfyanonymous/ComfyUI). Paint a mask over any area of an image, tune generation parameters, and run the FLUX.2-klein diffusion model — either in single-image or batch mode.
+> Code repository for the **ECML 2025 Demo Track** paper
+> *"Semantic Robustness Probing via Controlled Inpainting: An Interactive Tool for Safety-Critical Object Detection"*
+> Nico Steckhan, Krutarth Prajapati, Weija Shao, Silvia Vock · BAuA, Germany
 
-**Key features:**
+SemProbe is a local tool for systematically stress-testing object detectors against semantically meaningful, deployment-realistic image variations. With the EU AI Act classifying camera-based safety functions as high-risk AI, standard domain-agnostic benchmarks are no longer sufficient — robustness must be evidenced against factors derived from the actual **Operational Design Domain (ODD)**.
 
-- **Manual & SAM2 auto-mask** — draw a mask by hand or let GroundingDINO + SAM2 detect and segment the target object automatically from a text prompt
-- **Batch processing** — queue multiple images at once, with per-image mask overlays and live progress tracking
-- **Parallel variations** — generate multiple seeds or workflow variants simultaneously
-- **YOLO detection** — automatic hand/object detection runs on every output and annotated results are shown alongside the generated images
+The workflow: upload a deployment image, draw or auto-generate a mask over the region of interest, apply a controlled inpainting modification driven by an ODD factor catalog (e.g. *"cut-resistant work glove"*, *"heavy sawdust"*, *"specular glare"*), and immediately compare YOLO detection confidence and bounding boxes before and after. Every probe is logged with its factor, level, prompt, and confidence delta — exportable as CSV/JSON aligned with ISO/IEC TR 24029-1 and EU AI Act documentation requirements.
+
+Inpainting runs entirely locally on consumer GPUs (~13 GB VRAM) using [FLUX.2-klein](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B), preserving data sovereignty for safety-critical industrial imagery.
+
+**Key capabilities:**
+
+- **ODD-guided probing** — structure modifications along four ODD dimensions (actors, activities, environment, sensors) per ISO 34503 / BSI PAS 1883; catalogs can be authored manually or derived semi-automatically via LLM
+- **Manual & SAM2 auto-mask** — draw a mask by hand or let GroundingDINO + SAM2 auto-segment the target object from a text prompt
+- **Batch processing** — queue a full factor catalog across multiple images with live progress tracking and per-image mask overlays
+- **Parallel variations** — generate multiple seeds or inpainting variants simultaneously for robustness aggregation
+- **Side-by-side YOLO comparison** — detection results on original and modified images shown together with bounding boxes, confidence scores, and delta
 - **Workflow editor** — map ComfyUI node IDs to parameters directly in the UI without touching JSON
 
 ## Prerequisites
