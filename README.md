@@ -1,6 +1,14 @@
 # ComfyUI Inpaint Studio
 
-A local web app that runs multiple ComfyUI inpainting pipelines in parallel with a user-drawn mask. After generation, YOLO hand detection runs automatically on each output.
+A local web UI for AI-powered inpainting built on top of [ComfyUI](https://github.com/comfyanonymous/ComfyUI). Paint a mask over any area of an image, tune generation parameters, and run the FLUX.2-klein diffusion model — either in single-image or batch mode.
+
+**Key features:**
+
+- **Manual & SAM2 auto-mask** — draw a mask by hand or let GroundingDINO + SAM2 detect and segment the target object automatically from a text prompt
+- **Batch processing** — queue multiple images at once, with per-image mask overlays and live progress tracking
+- **Parallel variations** — generate multiple seeds or workflow variants simultaneously
+- **YOLO detection** — automatic hand/object detection runs on every output and annotated results are shown alongside the generated images
+- **Workflow editor** — map ComfyUI node IDs to parameters directly in the UI without touching JSON
 
 ## Prerequisites
 
