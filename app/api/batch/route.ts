@@ -23,6 +23,9 @@ const DEFAULT_PARAMS: InpaintParams = {
   useWorkflowDefaults: false,
   positivePrompt: "",
   negativePrompt: "",
+  automaskMode: "manual",
+  sam2Prompt: "hand",
+  sam2Threshold: 0.39,
 };
 
 /** POST /api/batch — create a new batch record, returns batchId */
@@ -57,6 +60,9 @@ export async function POST(request: Request) {
       String(formData.get("useWorkflowDefaults") ?? "false") === "true",
     positivePrompt: String(formData.get("positivePrompt") ?? ""),
     negativePrompt: String(formData.get("negativePrompt") ?? ""),
+    automaskMode: String(formData.get("automaskMode") ?? "manual") === "auto" ? "auto" : "manual",
+    sam2Prompt: String(formData.get("sam2Prompt") ?? DEFAULT_PARAMS.sam2Prompt),
+    sam2Threshold: Number(formData.get("sam2Threshold") ?? DEFAULT_PARAMS.sam2Threshold),
   };
 
   const batchId = randomUUID();

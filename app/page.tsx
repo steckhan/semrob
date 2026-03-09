@@ -17,6 +17,7 @@ type JobOutput = {
   workflowName: string;
   variationIndex: number;
   url: string;
+  filename?: string;
 };
 
 type YoloBox = {
@@ -75,6 +76,15 @@ type BatchStatusRecord = {
   subJobs: BatchSubJobRecord[];
 };
 
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, data] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] ?? "image/png";
+  const binary = atob(data);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
 function formatDuration(startedAt?: string, completedAt?: string): string | null {
   if (!startedAt || !completedAt) return null;
   const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
@@ -114,7 +124,101 @@ const DEFAULT_PARAMS = {
   useWorkflowDefaults: false,
   positivePrompt: "",
   negativePrompt: "",
+  automaskMode: "manual" as "manual" | "auto",
+  sam2Prompt: "hand",
+  sam2Threshold: 0.39,
 };
+
+const SLIDER_NUM_STYLE: React.CSSProperties = {
+  width: 48,
+  appearance: "textfield",
+  background: "var(--surface3)",
+  border: "1px solid var(--border)",
+  borderRadius: 4,
+  color: "var(--accent-light)",
+  padding: "2px 4px",
+  textAlign: "right",
+};
+
+function SliderNumInput({
+  value,
+  min,
+  max,
+  step,
+  disabled,
+  decimals = 0,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  disabled?: boolean;
+  decimals?: number;
+  onChange: (v: number) => void;
+}) {
+  const fmt = (n: number) => (decimals > 0 ? n.toFixed(decimals) : String(Math.round(n)));
+  const [text, setText] = useState(() => fmt(value));
+  const lastExternal = useRef(value);
+
+  if (value !== lastExternal.current) {
+    lastExternal.current = value;
+    setText(fmt(value));
+  }
+
+  return (
+    <input
+      className="slider-val"
+      type="text"
+      inputMode="decimal"
+      disabled={disabled}
+      style={SLIDER_NUM_STYLE}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        setText(raw);
+        const n = parseFloat(raw);
+        if (!isNaN(n)) {
+          onChange(Math.min(max, Math.max(min, n)));
+        }
+      }}
+      onBlur={() => {
+        const n = parseFloat(text);
+        const clamped = isNaN(n) ? value : Math.min(max, Math.max(min, n));
+        lastExternal.current = clamped;
+        setText(fmt(clamped));
+        onChange(clamped);
+      }}
+    />
+  );
+}
+
+function Hint({ tip }: { tip: string }) {
+  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const handleMouseEnter = () => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const tooltipWidth = 220;
+    const gap = 7;
+    const pad = 8;
+    const centered = rect.left + rect.width / 2 - tooltipWidth / 2;
+    const left = Math.min(Math.max(pad, centered), window.innerWidth - tooltipWidth - pad);
+    setPos({ left, bottom: window.innerHeight - rect.top + gap });
+  };
+
+  return (
+    <span ref={ref} className="hint-badge" onMouseEnter={handleMouseEnter} onMouseLeave={() => setPos(null)}>
+      ?
+      {pos && (
+        <span className="hint-tooltip" style={{ left: pos.left, bottom: pos.bottom }}>
+          {tip}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function JobResultSection({
   job,
@@ -178,20 +282,36 @@ function JobResultSection({
           </div>
           <div className="card-body">
             <div className="gallery">
-              {outputs.map((output) => (
+              {(() => {
+                const results = outputs.filter(o => !o.filename?.startsWith("mask_"));
+                const masks = outputs.filter(o => o.filename?.startsWith("mask_"));
+                return results.map((output, i) => {
+                  const maskOutput = masks[i];
+                  return (
                 <div
                   key={`${workflowName}-${output.variationIndex}`}
                   className="gallery-item"
                   onClick={() => onLightbox(output.url, `${workflowName} · variation ${output.variationIndex + 1}`)}
                 >
                   <img src={output.url} alt={`${workflowName} variation ${output.variationIndex}`} />
+                  {maskOutput && (
+                    <img
+                      src={maskOutput.url}
+                      alt="Generated mask"
+                      className="gallery-mask-thumb"
+                      title="SAM2 generated mask"
+                      onClick={(e) => { e.stopPropagation(); onLightbox(maskOutput.url, `${workflowName} · mask ${i + 1}`); }}
+                    />
+                  )}
                   {imagePreviewUrl && (
                     <button className="gallery-compare-btn" onClick={(e) => { e.stopPropagation(); onCompare(output.url); }}>
                       ⇄ Compare
                     </button>
                   )}
                 </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
@@ -265,7 +385,8 @@ function BatchResultCard({
 }) {
   const [showYoloImages, setShowYoloImages] = useState(false);
 
-  const firstOutput = job.outputs?.[0];
+  const resultOutput = job.outputs?.find(o => !o.filename?.startsWith("mask_"));
+  const maskOutput   = job.outputs?.find(o =>  o.filename?.startsWith("mask_"));
   const yolo = job.yoloResults;
   const yoloDone = yolo?.status === "completed";
   const yoloRunning = yolo?.status === "running";
@@ -298,13 +419,24 @@ function BatchResultCard({
           {/* Thumbnail + YOLO summary row */}
           <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: 8, alignItems: "start" }}>
             {/* Inpainted thumbnail */}
-            {firstOutput ? (
+            {resultOutput ? (
               <div
                 className="gallery-item"
-                style={{ width: 72, height: 56, cursor: "pointer" }}
-                onClick={() => onLightbox(firstOutput.url, `${firstOutput.workflowName} · ${imageName}`)}
+                style={{ width: 72, height: 56, cursor: "pointer", overflow: "hidden", borderRadius: "var(--radius)" }}
+                onClick={() => onLightbox(resultOutput.url, `${resultOutput.workflowName} · ${imageName}`)}
               >
-                <img src={firstOutput.url} alt={imageName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={resultOutput.url} alt={imageName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {maskOutput && (
+                  <img
+                    src={maskOutput.url}
+                    alt="SAM2 mask"
+                    className="gallery-mask-thumb"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLightbox(maskOutput.url, `SAM2 mask · ${imageName}`);
+                    }}
+                  />
+                )}
               </div>
             ) : (
               <div style={{ width: 72, height: 56, background: "var(--surface2)", borderRadius: 4 }} />
@@ -396,6 +528,8 @@ export default function HomePage() {
   const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
   const [batchSelectedJob, setBatchSelectedJob] = useState<JobRecord | null>(null);
   const [batchAllJobs, setBatchAllJobs] = useState<Record<number, JobRecord>>({});
+  // Tracks which imageIndex values have already been fetched during the current batch run
+  const fetchedBatchIndices = useRef<Set<number>>(new Set());
   // Track whether we need to reset the canvas when switching batch images
   const prevBatchIndexRef = useRef<number>(-1);
 
@@ -534,43 +668,50 @@ export default function HomePage() {
     setComfyTestError(null);
     setComfyTestMessage(null);
 
-    const formData = new FormData();
-    formData.append("image", imageFile);
-    const maskBlob = await fetch(maskDataUrl).then((res) => res.blob());
-    formData.append("mask", maskBlob, "mask.png");
-    Object.entries(params).forEach(([key, value]) => formData.append(key, String(value)));
-    formData.append("inpaintMode", inpaintMode);
-    if (inpaintMode === "api") {
-      formData.append("openaiApiKey", openaiApiKey.trim());
-      formData.append("openaiModel", openaiModel);
-    } else {
-      formData.append("comfyBaseUrl", comfyBaseUrl.trim());
-    }
+    try {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      const maskBlob = dataUrlToBlob(maskDataUrl);
+      formData.append("mask", maskBlob, "mask.png");
+      Object.entries(params).forEach(([key, value]) => formData.append(key, String(value)));
+      formData.append("inpaintMode", inpaintMode);
+      if (inpaintMode === "api") {
+        formData.append("openaiApiKey", openaiApiKey.trim());
+        formData.append("openaiModel", openaiModel);
+      } else {
+        formData.append("comfyBaseUrl", comfyBaseUrl.trim());
+      }
 
-    const response = await fetch("/api/jobs", { method: "POST", body: formData });
-    if (!response.ok) {
-      const payload = (await response.json()) as { error?: string };
-      setComfyTestError(payload.error ?? "Failed to submit job.");
+      const response = await fetch("/api/jobs", { method: "POST", body: formData });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        setComfyTestError(payload.error ?? "Failed to submit job.");
+        return;
+      }
+
+      const payload = (await response.json()) as JobRecord;
+      setJob(payload);
+      window.localStorage.setItem(INPAINT_MODE_KEY, inpaintMode);
+      if (inpaintMode === "local") {
+        window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
+      } else {
+        window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
+        window.localStorage.setItem(OPENAI_MODEL_KEY, openaiModel);
+      }
+    } catch (err) {
+      setComfyTestError(err instanceof Error ? err.message : "Network error submitting job.");
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    const payload = (await response.json()) as JobRecord;
-    setJob(payload);
-    window.localStorage.setItem(INPAINT_MODE_KEY, inpaintMode);
-    if (inpaintMode === "local") {
-      window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
-    } else {
-      window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
-      window.localStorage.setItem(OPENAI_MODEL_KEY, openaiModel);
-    }
-    setIsSubmitting(false);
   };
 
   // ── Batch job submit ──────────────────────────────────────────────────────
   const submitBatch = async () => {
     if (batchImages.length === 0) return;
     setIsBatchRunning(true);
+    setBatchStatus(null);
+    setBatchAllJobs({});
+    fetchedBatchIndices.current = new Set();
     setUploadProgress({ uploaded: 0, total: batchImages.length });
 
     try {
@@ -637,22 +778,26 @@ export default function HomePage() {
     setIsTestingComfy(true);
     setComfyTestMessage(null);
     setComfyTestError(null);
-    const response = await fetch("/api/comfyui/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comfyBaseUrl: comfyBaseUrl.trim() }),
-    });
-    const payload = (await response.json()) as { ok?: boolean; comfyBaseUrl?: string; error?: string };
-    if (!response.ok || !payload.ok) {
-      setComfyTestError(payload.error ?? "Failed to connect.");
+    try {
+      const response = await fetch("/api/comfyui/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comfyBaseUrl: comfyBaseUrl.trim() }),
+      });
+      const payload = (await response.json()) as { ok?: boolean; comfyBaseUrl?: string; error?: string };
+      if (!response.ok || !payload.ok) {
+        setComfyTestError(payload.error ?? "Failed to connect.");
+        return;
+      }
+      const resolvedUrl = payload.comfyBaseUrl ?? comfyBaseUrl.trim();
+      setComfyBaseUrl(resolvedUrl);
+      window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, resolvedUrl);
+      setComfyTestMessage(`Connected to ${resolvedUrl}`);
+    } catch (err) {
+      setComfyTestError(err instanceof Error ? err.message : "Network error.");
+    } finally {
       setIsTestingComfy(false);
-      return;
     }
-    const resolvedUrl = payload.comfyBaseUrl ?? comfyBaseUrl.trim();
-    setComfyBaseUrl(resolvedUrl);
-    window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, resolvedUrl);
-    setComfyTestMessage(`Connected to ${resolvedUrl}`);
-    setIsTestingComfy(false);
   };
 
   // ── Poll single job ───────────────────────────────────────────────────────
@@ -661,10 +806,12 @@ export default function HomePage() {
     const yoloDone = job.yoloResults?.status === "completed" || job.yoloResults?.status === "failed";
     if ((job.status === "completed" && yoloDone) || job.status === "failed") return;
     const timer = window.setInterval(async () => {
-      const response = await fetch(`/api/jobs/${job.id}`);
-      if (!response.ok) return;
-      const payload = (await response.json()) as JobRecord;
-      setJob(payload);
+      try {
+        const response = await fetch(`/api/jobs/${job.id}`);
+        if (!response.ok) return;
+        const payload = (await response.json()) as JobRecord;
+        setJob(payload);
+      } catch { /* network hiccup — retry next tick */ }
     }, 1500);
     return () => window.clearInterval(timer);
   }, [job]);
@@ -677,13 +824,41 @@ export default function HomePage() {
       return;
     }
     const timer = window.setInterval(async () => {
-      const res = await fetch(`/api/batch/${batchJobId}`);
-      if (!res.ok) return;
-      const payload = (await res.json()) as BatchStatusRecord;
-      setBatchStatus(payload);
-      if (payload.status === "completed" || payload.status === "failed") {
-        setIsBatchRunning(false);
-      }
+      try {
+        const res = await fetch(`/api/batch/${batchJobId}`);
+        if (!res.ok) return;
+        const payload = (await res.json()) as BatchStatusRecord;
+        setBatchStatus(payload);
+        if (payload.status === "completed" || payload.status === "failed") {
+          setIsBatchRunning(false);
+        }
+        // Incrementally fetch individual job records for newly-completed
+        // sub-jobs so mask overlays appear as each image finishes.
+        const toFetch = payload.subJobs.filter(
+          (s) =>
+            s.jobId &&
+            (s.status === "completed" || s.status === "failed") &&
+            !fetchedBatchIndices.current.has(s.imageIndex),
+        );
+        if (toFetch.length > 0) {
+          for (const s of toFetch) fetchedBatchIndices.current.add(s.imageIndex);
+          Promise.all(
+            toFetch.map(async (s) => {
+              try {
+                const r = await fetch(`/api/jobs/${s.jobId!}`);
+                if (!r.ok) return null;
+                return { index: s.imageIndex, job: (await r.json()) as JobRecord };
+              } catch { return null; }
+            }),
+          ).then((results) => {
+            setBatchAllJobs((cur) => {
+              const next = { ...cur };
+              for (const u of results) if (u) next[u.index] = u.job;
+              return next;
+            });
+          });
+        }
+      } catch { /* network hiccup — retry next tick */ }
     }, 2000);
     return () => window.clearInterval(timer);
   }, [batchJobId, batchStatus?.status]);
@@ -695,9 +870,11 @@ export default function HomePage() {
     if (subJobsWithId.length === 0) return;
     Promise.all(
       subJobsWithId.map(async (s) => {
-        const res = await fetch(`/api/jobs/${s.jobId!}`);
-        if (!res.ok) return null;
-        return { index: s.imageIndex, job: (await res.json()) as JobRecord };
+        try {
+          const res = await fetch(`/api/jobs/${s.jobId!}`);
+          if (!res.ok) return null;
+          return { index: s.imageIndex, job: (await res.json()) as JobRecord };
+        } catch { return null; }
       }),
     ).then((results) => {
       const map: Record<number, JobRecord> = {};
@@ -715,18 +892,22 @@ export default function HomePage() {
     );
     if (runningEntries.length === 0) return;
     const timer = window.setInterval(async () => {
-      const updates = await Promise.all(
-        runningEntries.map(async ([idx, j]) => {
-          const res = await fetch(`/api/jobs/${j.id}`);
-          if (!res.ok) return null;
-          return { idx: Number(idx), job: (await res.json()) as JobRecord };
-        }),
-      );
-      setBatchAllJobs((prev) => {
-        const next = { ...prev };
-        for (const u of updates) if (u) next[u.idx] = u.job;
-        return next;
-      });
+      try {
+        const updates = await Promise.all(
+          runningEntries.map(async ([idx, j]) => {
+            try {
+              const res = await fetch(`/api/jobs/${j.id}`);
+              if (!res.ok) return null;
+              return { idx: Number(idx), job: (await res.json()) as JobRecord };
+            } catch { return null; }
+          }),
+        );
+        setBatchAllJobs((prev) => {
+          const next = { ...prev };
+          for (const u of updates) if (u) next[u.idx] = u.job;
+          return next;
+        });
+      } catch { /* network hiccup — retry next tick */ }
     }, 2000);
     return () => window.clearInterval(timer);
   }, [batchAllJobs]);
@@ -744,23 +925,27 @@ export default function HomePage() {
     }
     let cancelled = false;
     const fetchJob = async () => {
-      const res = await fetch(`/api/jobs/${subJob.jobId}`);
-      if (!res.ok || cancelled) return;
-      const data = (await res.json()) as JobRecord;
-      if (!cancelled) setBatchSelectedJob(data);
+      try {
+        const res = await fetch(`/api/jobs/${subJob.jobId}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as JobRecord;
+        if (!cancelled) setBatchSelectedJob(data);
+      } catch { /* ignore */ }
     };
     fetchJob();
     // Re-poll while YOLO is running
     const timer = window.setInterval(async () => {
-      const res = await fetch(`/api/jobs/${subJob.jobId}`);
-      if (!res.ok || cancelled) return;
-      const data = (await res.json()) as JobRecord;
-      if (!cancelled) {
-        setBatchSelectedJob(data);
-        if (data.yoloResults?.status !== "running") {
-          window.clearInterval(timer);
+      try {
+        const res = await fetch(`/api/jobs/${subJob.jobId}`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as JobRecord;
+        if (!cancelled) {
+          setBatchSelectedJob(data);
+          if (data.yoloResults?.status !== "running") {
+            window.clearInterval(timer);
+          }
         }
-      }
+      } catch { /* network hiccup — retry next tick */ }
     }, 2000);
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [appMode, batchActiveIndex, batchStatus?.subJobs]);
@@ -807,28 +992,25 @@ export default function HomePage() {
     setIsBatchRunning(false);
     setUploadProgress(null);
     setBatchAllJobs({});
+    fetchedBatchIndices.current = new Set();
   }, []);
 
   // Detect active batch image change to reset canvas key
   const batchCanvasKey = `batch-canvas-${batchActiveIndex}-${batchImages[batchActiveIndex]?.id ?? "empty"}`;
 
-  // Hide floating toolbar after run is triggered
+  // Hide floating toolbar while a job is actively running
   const toolbarHidden = appMode === "single"
-    ? (isSubmitting || job?.status === "running" || job?.status === "completed")
+    ? (isSubmitting || job?.status === "running")
     : (isBatchRunning || batchStatus?.status === "running" || batchStatus?.status === "completed");
 
   // Steps: Upload → Mask → Run → Results (single mode only)
   const stepDone = [!!imageFile, !!maskDataUrl, !!job, job?.status === "completed"];
 
-  // ── Job active guards (Fix 3) ─────────────────────────────────────────────
+  // ── Job active guards ─────────────────────────────────────────────────────
   const singleJobActive = isSubmitting || (!!job && job.status !== "completed" && job.status !== "failed");
   const batchJobActive = isBatchRunning;
 
-  const singleRunLabel = isSubmitting
-    ? "⟳  Running…"
-    : job?.status === "completed"
-    ? "✓  Done"
-    : "▶  Run Inpainting";
+  const singleRunLabel = isSubmitting ? "⟳  Running…" : "▶  Run Inpainting";
 
   // The image to show in the canvas area
   const canvasImageUrl = appMode === "batch"
@@ -1025,7 +1207,7 @@ export default function HomePage() {
                 )}
 
                 <div>
-                  <label>Prompt</label>
+                  <label>Prompt <Hint tip="Describe what to generate in the masked area. e.g. black glove, metal watch, leather jacket" /></label>
                   <input
                     className="input"
                     type="text"
@@ -1042,35 +1224,114 @@ export default function HomePage() {
 
                 {appMode === "single" && (
                   <div className="slider-row">
-                    <label className="slider-label">Variations</label>
+                    <label className="slider-label">Variations <Hint tip="Number of images to generate per run" /></label>
                     <input type="range" min={1} max={inpaintMode === "api" ? 10 : 12} value={params.variationCount}
                       onChange={(e) => setParams((p) => ({ ...p, variationCount: Number(e.target.value) }))} />
-                    <span className="slider-val">{params.variationCount}</span>
+                    <input
+                      className="slider-val"
+                      type="number"
+                      min={1}
+                      max={inpaintMode === "api" ? 10 : 12}
+                      step={1}
+                      style={{ width: 48, appearance: "textfield", background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--accent-light)", padding: "2px 4px" } as React.CSSProperties}
+                      value={params.variationCount}
+                      onChange={(e) => {
+                        const max = inpaintMode === "api" ? 10 : 12;
+                        const v = Math.min(max, Math.max(1, Number(e.target.value)));
+                        setParams((p) => ({ ...p, variationCount: v }));
+                      }}
+                    />
                   </div>
                 )}
 
                 {inpaintMode === "local" && (
                   <>
                     <div>
-                      <label>Negative Prompt</label>
+                      <label>Negative Prompt <Hint tip="Concepts to avoid in the output. e.g. blurry, unrealistic, watermark" /></label>
                       <input className="input" type="text" value={params.negativePrompt} disabled={params.useWorkflowDefaults}
                         onChange={(e) => setParams((p) => ({ ...p, negativePrompt: e.target.value }))} />
                     </div>
+                    <div>
+                      <label>Mask Mode <Hint tip="Manual: paint the mask yourself. Auto: AI detects and masks the target object" /></label>
+                      <select className="input" value={params.automaskMode}
+                        onChange={(e) => setParams((p) => ({ ...p, automaskMode: e.target.value as "manual" | "auto" }))}>
+                        <option value="manual">Manual</option>
+                        <option value="auto">Auto (SAM2)</option>
+                      </select>
+                    </div>
+                    {params.automaskMode === "auto" && (
+                      <>
+                        <div>
+                          <label>SAM2 Segment Target <Hint tip="Object for AI to auto-detect and mask. e.g. hand, person, bottle, car" /></label>
+                          <input
+                            className="input"
+                            type="text"
+                            placeholder="e.g. hand, person, car"
+                            value={params.sam2Prompt}
+                            onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
+                          />
+                        </div>
+                        <div className="slider-row">
+                          <label className="slider-label">SAM2 Thr. <Hint tip="Detection confidence threshold. Lower = larger/looser mask, higher = tighter fit" /></label>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={params.sam2Threshold ?? 0.39}
+                            onChange={(e) => setParams((p) => ({ ...p, sam2Threshold: Number(e.target.value) }))}
+                          />
+                          <SliderNumInput
+                            value={params.sam2Threshold ?? 0.39}
+                            min={0} max={1} step={0.01} decimals={2}
+                            onChange={(v) => setParams((p) => ({ ...p, sam2Threshold: v }))}
+                          />
+                        </div>
+                      </>
+                    )}
                     <div className="slider-row">
-                      <label className="slider-label">Steps</label>
+                      <label className="slider-label">Steps <Hint tip="Diffusion steps — more = slower but potentially sharper" /></label>
                       <input type="range" min={1} max={100} value={params.steps} disabled={params.useWorkflowDefaults}
                         onChange={(e) => setParams((p) => ({ ...p, steps: Number(e.target.value) }))} />
-                      <span className="slider-val">{params.steps}</span>
+                      <input
+                        className="slider-val"
+                        type="number"
+                        min={1}
+                        max={100}
+                        step={1}
+                        disabled={params.useWorkflowDefaults}
+                        style={{ width: 48, appearance: "textfield", background: "var(--surface3)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--accent-light)", padding: "2px 4px" } as React.CSSProperties}
+                        value={params.steps}
+                        onChange={(e) => {
+                          const v = Math.min(100, Math.max(1, Number(e.target.value)));
+                          setParams((p) => ({ ...p, steps: v }));
+                        }}
+                      />
                     </div>
                     <div className="slider-row">
-                      <label className="slider-label">Mask Str.</label>
+                      <label className="slider-label">CFG <Hint tip="Classifier-free guidance. 1.0 = Flux default; higher = prompt followed more strictly" /></label>
+                      <input type="range" min={0} max={20} step={0.1} value={params.cfgScale} disabled={params.useWorkflowDefaults}
+                        onChange={(e) => setParams((p) => ({ ...p, cfgScale: Number(e.target.value) }))} />
+                      <SliderNumInput
+                        value={params.cfgScale}
+                        min={0} max={20} step={0.1} decimals={1}
+                        disabled={params.useWorkflowDefaults}
+                        onChange={(v) => setParams((p) => ({ ...p, cfgScale: v }))}
+                      />
+                    </div>
+                    <div className="slider-row">
+                      <label className="slider-label">Mask Str. <Hint tip="Inpaint denoising strength. 1.0 = fully replace masked area; lower = blend with original" /></label>
                       <input type="range" min={0} max={1} step={0.05} value={params.maskStrength}
                         onChange={(e) => setParams((p) => ({ ...p, maskStrength: Number(e.target.value) }))} />
-                      <span className="slider-val">{params.maskStrength.toFixed(2)}</span>
+                      <SliderNumInput
+                        value={params.maskStrength}
+                        min={0} max={1} step={0.05} decimals={2}
+                        onChange={(v) => setParams((p) => ({ ...p, maskStrength: v }))}
+                      />
                     </div>
                     <div className="params-grid">
                       <div>
-                        <label>Sampler</label>
+                        <label>Sampler <Hint tip="Algorithm for each diffusion step. euler_ancestral is the Flux default" /></label>
                         <select value={params.sampler} disabled={params.useWorkflowDefaults} onChange={(e) => setParams((p) => ({ ...p, sampler: e.target.value }))}>
                           <option value="euler_ancestral">euler_ancestral</option>
                           <option value="euler">euler</option>
@@ -1080,7 +1341,7 @@ export default function HomePage() {
                         </select>
                       </div>
                       <div>
-                        <label>Scheduler</label>
+                        <label>Scheduler <Hint tip="Noise schedule type. Affects texture and softness of the result" /></label>
                         <select value={params.scheduler} disabled={params.useWorkflowDefaults} onChange={(e) => setParams((p) => ({ ...p, scheduler: e.target.value }))}>
                           <option value="normal">normal</option>
                           <option value="karras">karras</option>
@@ -1089,7 +1350,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div>
-                      <label>Seed</label>
+                      <label>Seed <Hint tip="Controls randomness. Fixed seed + same settings = reproducible result" /></label>
                       <div style={{ display: "flex", gap: 6 }}>
                         <select className="input" value={params.seedMode} disabled={params.useWorkflowDefaults}
                           onChange={(e) => setParams((p) => ({ ...p, seedMode: e.target.value as "random" | "increment" | "fixed" }))}>
@@ -1138,6 +1399,12 @@ export default function HomePage() {
                 onRun={submitBatch}
                 onNew={handleBatchClearAll}
                 singleJobActive={singleJobActive}
+                automaskMode={params.automaskMode}
+                maskUrls={batchImages.map((_, i) => {
+                  const maskOut = batchAllJobs[i]?.outputs?.find(o => o.filename?.startsWith("mask_"));
+                  return maskOut?.url ?? null;
+                })}
+                onMaskLightbox={(url, caption) => { setLightboxUrl(url); setLightboxCaption(caption); }}
               />
             )}
           </div>
@@ -1152,19 +1419,10 @@ export default function HomePage() {
                   className={`btn-run${isSubmitting ? " running" : ""}`}
                   style={{ flex: 1 }}
                   onClick={submitJob}
-                  disabled={!imageFile || !maskDataUrl || isSubmitting || job?.status === "completed" || batchJobActive}
+                  disabled={!imageFile || !maskDataUrl || isSubmitting || batchJobActive}
                 >
                   {singleRunLabel}
                 </button>
-                {job?.status === "completed" && (
-                  <button
-                    className="btn btn-outline"
-                    style={{ whiteSpace: "nowrap" }}
-                    onClick={() => { setJob(null); setImageFile(null); setMaskDataUrl(null); }}
-                  >
-                    New
-                  </button>
-                )}
               </div>
             </div>
           )}

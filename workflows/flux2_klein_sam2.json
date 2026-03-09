@@ -14,7 +14,7 @@
   },
   "76": {
     "inputs": {
-      "image": "clipspace/clipspace-painted-masked-1772035872662.png [input]"
+      "image": "frame_000704.PNG"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -23,7 +23,7 @@
   },
   "99": {
     "inputs": {
-      "seed": 225845928336871
+      "seed": 197413801361063
     },
     "class_type": "easy seed",
     "_meta": {
@@ -240,7 +240,6 @@
   },
   "119": {
     "inputs": {
-      "$$node-text-preview": "width: 1536, height: 864\n batch size: 1",
       "image": [
         "171",
         0
@@ -372,12 +371,12 @@
           {
             "name": "A",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_crzea_00001_.png&type=temp&subfolder=&rand=0.13843970256111082"
+            "url": "/api/view?filename=rgthree.compare._temp_ryhny_00009_.png&type=temp&subfolder=&rand=0.01101355120146763"
           },
           {
             "name": "B",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_crzea_00002_.png&type=temp&subfolder=&rand=0.3456175944737525"
+            "url": "/api/view?filename=rgthree.compare._temp_ryhny_00010_.png&type=temp&subfolder=&rand=0.14883778331101216"
           }
         ]
       },
@@ -418,7 +417,6 @@
   },
   "150": {
     "inputs": {
-      "$$node-text-preview": "width: 1920, height: 1080\n batch size: 1",
       "image": [
         "76",
         0
@@ -709,8 +707,8 @@
   "181": {
     "inputs": {
       "masks": [
-        "76",
-        1
+        "209",
+        0
       ]
     },
     "class_type": "Mask Fill Holes",
@@ -733,8 +731,8 @@
   "190": {
     "inputs": {
       "mask": [
-        "76",
-        1
+        "209",
+        0
       ]
     },
     "class_type": "easy isMaskEmpty",
@@ -808,6 +806,113 @@
     "class_type": "ColorMatch",
     "_meta": {
       "title": "Color Match"
+    }
+  },
+  "200": {
+    "inputs": {
+      "model_name": "sam2_hiera_base_plus.pt"
+    },
+    "class_type": "SAM2ModelLoader (segment anything2)",
+    "_meta": {
+      "title": "SAM2ModelLoader (segment anything2)"
+    }
+  },
+  "201": {
+    "inputs": {
+      "prompt": "hand",
+      "threshold": 0.39,
+      "sam_model": [
+        "200",
+        0
+      ],
+      "grounding_dino_model": [
+        "203",
+        0
+      ],
+      "image": [
+        "76",
+        0
+      ]
+    },
+    "class_type": "GroundingDinoSAM2Segment (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoSAM2Segment (segment anything2)"
+    }
+  },
+  "203": {
+    "inputs": {
+      "model_name": "GroundingDINO_SwinB (938MB)"
+    },
+    "class_type": "GroundingDinoModelLoader (segment anything2)",
+    "_meta": {
+      "title": "GroundingDinoModelLoader (segment anything2)"
+    }
+  },
+  "204": {
+    "inputs": {
+      "images": [
+        "201",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "205": {
+    "inputs": {
+      "mask": [
+        "201",
+        1
+      ]
+    },
+    "class_type": "MaskPreview",
+    "_meta": {
+      "title": "Preview Mask"
+    }
+  },
+  "209": {
+    "inputs": {
+      "select": 2,
+      "sel_mode": false,
+      "input1": [
+        "76",
+        1
+      ],
+      "input2": [
+        "201",
+        1
+      ]
+    },
+    "class_type": "ImpactSwitch",
+    "_meta": {
+      "title": "Automask switch"
+    }
+  },
+  "210": {
+    "inputs": {
+      "filename_prefix": "mask_out",
+      "images": [
+        "211",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "211": {
+    "inputs": {
+      "mask": [
+        "201",
+        1
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "Convert Mask to Image"
     }
   }
 }

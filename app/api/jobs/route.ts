@@ -18,6 +18,9 @@ const DEFAULT_PARAMS: InpaintParams = {
   useWorkflowDefaults: false,
   positivePrompt: "wristwatch, metal casing, worn look",
   negativePrompt: "",
+  automaskMode: "manual",
+  sam2Prompt: "hand",
+  sam2Threshold: 0.39,
 };
 
 function parseComfyBaseUrl(rawValue: FormDataEntryValue | null): string | null {
@@ -123,38 +126,48 @@ export async function POST(request: Request) {
     negativePrompt: String(
       formData.get("negativePrompt") ?? DEFAULT_PARAMS.negativePrompt,
     ),
+    automaskMode: String(formData.get("automaskMode") ?? "manual") === "auto" ? "auto" : "manual",
+    sam2Prompt: String(formData.get("sam2Prompt") ?? "hand"),
+    sam2Threshold: Number(formData.get("sam2Threshold") ?? DEFAULT_PARAMS.sam2Threshold),
   };
 
   const workflowName = String(formData.get("workflowName") ?? "").trim();
 
-  const { workflows: allWorkflows, mappings } = await loadWorkflowBundle();
-  const workflows = workflowName
-    ? allWorkflows.filter((w) => w.name === workflowName)
-    : allWorkflows;
+  try {
+    const { workflows: allWorkflows, mappings } = await loadWorkflowBundle();
+    const workflows = workflowName
+      ? allWorkflows.filter((w) => w.name === workflowName)
+      : allWorkflows;
 
-  if (inpaintMode === "local" && workflows.length === 0) {
+    if (inpaintMode === "local" && workflows.length === 0) {
+      return NextResponse.json(
+        { error: workflowName ? `Workflow "${workflowName}" not found.` : "No workflows found in /workflows." },
+        { status: 500 },
+      );
+    }
+
+    const [imageBuffer, maskBuffer] = await Promise.all([
+      imageFile.arrayBuffer(),
+      maskFile.arrayBuffer(),
+    ]);
+
+    const job = await createJob({
+      imageBuffer: Buffer.from(imageBuffer),
+      maskBuffer: Buffer.from(maskBuffer),
+      comfyBaseUrl: inpaintMode === "local" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
+      params,
+      workflows: inpaintMode === "local" ? workflows : [],
+      mappings: inpaintMode === "local" ? mappings : [],
+      inpaintMode: inpaintMode as "local" | "api",
+      openaiApiKey: inpaintMode === "api" ? openaiApiKey : undefined,
+      openaiModel: inpaintMode === "api" ? openaiModel : undefined,
+    });
+
+    return NextResponse.json(job);
+  } catch (err) {
     return NextResponse.json(
-      { error: workflowName ? `Workflow "${workflowName}" not found.` : "No workflows found in /workflows." },
+      { error: err instanceof Error ? err.message : "Unexpected server error." },
       { status: 500 },
     );
   }
-
-  const [imageBuffer, maskBuffer] = await Promise.all([
-    imageFile.arrayBuffer(),
-    maskFile.arrayBuffer(),
-  ]);
-
-  const job = await createJob({
-    imageBuffer: Buffer.from(imageBuffer),
-    maskBuffer: Buffer.from(maskBuffer),
-    comfyBaseUrl: inpaintMode === "local" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
-    params,
-    workflows: inpaintMode === "local" ? workflows : [],
-    mappings: inpaintMode === "local" ? mappings : [],
-    inpaintMode: inpaintMode as "local" | "api",
-    openaiApiKey: inpaintMode === "api" ? openaiApiKey : undefined,
-    openaiModel: inpaintMode === "api" ? openaiModel : undefined,
-  });
-
-  return NextResponse.json(job);
 }

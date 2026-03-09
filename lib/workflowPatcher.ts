@@ -199,5 +199,26 @@ export function patchWorkflow({
     }
   }
 
+  // SAM2 automask switch: select=1 manual mask, select=2 SAM2 auto-mask
+  if (resolvedTargets.automaskSwitchNodeId) {
+    const switchNode = patched[resolvedTargets.automaskSwitchNodeId];
+    if (switchNode?.inputs) {
+      switchNode.inputs.select = params.automaskMode === "auto" ? 2 : 1;
+    }
+  }
+
+  // SAM2 segmentation prompt and threshold
+  if (resolvedTargets.sam2PromptNodeId && params.automaskMode === "auto") {
+    const sam2Node = patched[resolvedTargets.sam2PromptNodeId];
+    if (sam2Node?.inputs) {
+      if (params.sam2Prompt) {
+        sam2Node.inputs.prompt = params.sam2Prompt;
+      }
+      if (params.sam2Threshold !== undefined) {
+        sam2Node.inputs.threshold = params.sam2Threshold;
+      }
+    }
+  }
+
   return patched;
 }

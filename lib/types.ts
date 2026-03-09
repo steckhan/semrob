@@ -13,6 +13,9 @@ export type InpaintParams = {
   useWorkflowDefaults: boolean;
   positivePrompt: string;
   negativePrompt: string;
+  automaskMode?: "manual" | "auto";
+  sam2Prompt?: string;
+  sam2Threshold?: number;
 };
 
 export type WorkflowDefinition = {
@@ -42,6 +45,8 @@ export type WorkflowPatchTargets = {
   schedulerInputKey?: string;
   denoiseNodeId?: string;
   denoiseInputKey?: string;
+  automaskSwitchNodeId?: string;
+  sam2PromptNodeId?: string;
 };
 
 export type WorkflowMapping = {

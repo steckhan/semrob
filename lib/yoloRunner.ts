@@ -72,7 +72,7 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
     // Collect output image paths that actually exist locally
     const outputEntries: Array<{ key: string; filePath: string }> = [];
     for (const output of job.outputs) {
-      if (output.source === "local") {
+      if (output.source === "local" && !output.filename?.startsWith("mask_")) {
         const key = `${output.workflowName}_${output.variationIndex}`;
         outputEntries.push({ key, filePath: output.filePath });
       }

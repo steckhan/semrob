@@ -1,6 +1,6 @@
 [
   {
-    "workflowName": "flux2_klein",
+    "workflowName": "flux2_klein_sam2",
     "targets": {
       "imageNodeId": "76",
       "imageInputKey": "image",
@@ -17,7 +17,9 @@
       "samplerNameInputKey": "sampler_name",
       "schedulerNodeId": "__none__",
       "denoiseNodeId": "__none__",
-      "positivePromptNodeId": "149"
+      "positivePromptNodeId": "149",
+      "automaskSwitchNodeId": "209",
+      "sam2PromptNodeId": "201"
     }
   }
 ]

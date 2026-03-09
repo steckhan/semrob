@@ -420,13 +420,55 @@ body {
 
 /* ── Form elements ── */
 label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-dim);
   margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* ── Hint tooltips ── */
+.hint-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.58rem;
+  font-weight: 700;
+  cursor: default;
+  position: relative;
+  flex-shrink: 0;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 0;
+}
+
+.hint-tooltip {
+  position: fixed;
+  background: var(--surface2, #1a1d27);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: normal;
+  max-width: 220px;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 .input,
@@ -472,7 +514,8 @@ select {
 }
 
 .slider-label {
-  width: 68px;
+  min-width: 68px;
+  width: auto;
   flex-shrink: 0;
   margin-bottom: 0;
 }
@@ -735,6 +778,48 @@ input[type="range"]:disabled {
 
 .gallery-item:hover .gallery-compare-btn {
   opacity: 1;
+}
+
+.gallery-mask-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+.gallery-item:hover .gallery-mask-thumb,
+.batch-thumb:hover .gallery-mask-thumb {
+  opacity: 0.55;
+  pointer-events: auto;
+}
+
+/* Override .gallery-item img's border/height-auto for mask overlays */
+.gallery-item .gallery-mask-thumb {
+  border: none;
+  height: 100%;
+}
+
+/* Batch thumbnail mask — hidden by default, shown on hover */
+.batch-thumb .batch-mask-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.batch-thumb:hover .batch-mask-thumb {
+  opacity: 0.7;
+  pointer-events: auto;
 }
 
 /* ── Detection badge ── */
