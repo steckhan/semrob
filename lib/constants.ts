@@ -58,3 +58,6 @@ export const YOLO_SCRIPT_PATH =
 export const YOLO_MODEL_PATH =
   process.env.YOLO_MODEL_PATH ??
   path.join(PROJECT_ROOT, "model", "best.pt");
+export const GT_DIR =
+  process.env.GT_DIR ??
+  path.join(PROJECT_ROOT, "IPA_repo", "obj_Test_data");

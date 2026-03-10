@@ -2,9 +2,11 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 
-import { DATA_ROOT, YOLO_CONF_THRESHOLD, YOLO_MODEL_PATH, YOLO_PYTHON, YOLO_SCRIPT_PATH } from "./constants";
+import { DATA_ROOT, GT_DIR, YOLO_CONF_THRESHOLD, YOLO_MODEL_PATH, YOLO_PYTHON, YOLO_SCRIPT_PATH } from "./constants";
 import { readJob, writeJob } from "./jobStore";
-import type { YoloImageResult, YoloJobResults } from "./types";
+import { appendFrameMetrics } from "./metricsStore";
+import { computeAP, computeCounts, computeF1, computePrecision, computeRecall, matchPredictionsToGT } from "./yoloMetrics";
+import type { YoloGtBox, YoloImageResult, YoloJobResults } from "./types";
 
 const UPLOADS_DIR = path.join(DATA_ROOT, "uploads");
 const YOLO_DIR = path.join(DATA_ROOT, "yolo");
@@ -20,6 +22,13 @@ type YoloDetectOutput = {
       boxes: Array<{
         class: number;
         confidence: number;
+        cx: number;
+        cy: number;
+        w: number;
+        h: number;
+      }>;
+      gtBoxes?: Array<{
+        class: number;
         cx: number;
         cy: number;
         w: number;
@@ -48,11 +57,28 @@ function spawnYolo(args: string[]): Promise<void> {
   });
 }
 
+/** Check whether a GT .txt file exists for the given image filename (case-insensitive). */
+async function gtFileExists(imageFilename: string): Promise<boolean> {
+  const basename = path.parse(imageFilename).name.toLowerCase();
+  try {
+    const entries = await fs.readdir(GT_DIR);
+    return entries.some(
+      (e) => e.toLowerCase() === `${basename}.txt`,
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function runYoloOnJob(jobId: string): Promise<void> {
   const job = await readJob(jobId);
   if (!job) return;
 
   const yoloOutputDir = path.join(YOLO_DIR, jobId);
+
+  // Determine GT availability based on original filename
+  const originalFilename = job.originalFilename ?? "";
+  const gtAvailable = originalFilename ? await gtFileExists(originalFilename) : false;
 
   // Mark as running
   await writeJob({
@@ -61,6 +87,7 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       status: "running",
       model: path.basename(YOLO_MODEL_PATH),
       confThreshold: YOLO_CONF_THRESHOLD,
+      gtAvailable,
     },
   });
 
@@ -83,12 +110,19 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       ...outputEntries.map((o) => o.filePath),
     ];
 
-    await spawnYolo([
+    const yoloArgs = [
       "--model", YOLO_MODEL_PATH,
       "--images", ...allImagePaths,
       "--output-dir", yoloOutputDir,
       "--conf", String(YOLO_CONF_THRESHOLD),
-    ]);
+    ];
+
+    if (gtAvailable) {
+      yoloArgs.push("--gt-dir", GT_DIR);
+      yoloArgs.push("--gt-name", originalFilename);
+    }
+
+    await spawnYolo(yoloArgs);
 
     const resultsRaw = await fs.readFile(
       path.join(yoloOutputDir, "results.json"),
@@ -99,12 +133,40 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
     // Map original result
     const origBasename = "input.png";
     const origDet = results.detections[origBasename];
+    const origGtBoxes: YoloGtBox[] = origDet?.gtBoxes ?? [];
+    const origIouMatches = origDet
+      ? matchPredictionsToGT(origDet.boxes, origGtBoxes)
+      : [];
+
     const original: YoloImageResult = origDet
       ? {
           annotatedUrl: `/api/jobs/${jobId}/yolo/${encodeURIComponent(origDet.annotatedFile)}`,
           boxes: origDet.boxes,
+          gtBoxes: origGtBoxes.length > 0 ? origGtBoxes : undefined,
+          iouMatches: origGtBoxes.length > 0 ? origIouMatches : undefined,
         }
       : { annotatedUrl: "", boxes: [] };
+
+    // Compute original image metrics vs GT (secondary baseline)
+    let frameAP: number | undefined;
+    let framePrecision: number | undefined;
+    let frameRecall: number | undefined;
+    let frameF1: number | undefined;
+    let frameTp: number | undefined;
+    let frameFp: number | undefined;
+    let frameFn: number | undefined;
+    if (gtAvailable && origDet) {
+      frameAP        = computeAP(origDet.boxes, origGtBoxes);
+      framePrecision = computePrecision(origDet.boxes, origGtBoxes);
+      frameRecall    = computeRecall(origDet.boxes, origGtBoxes);
+      frameF1        = computeF1(origDet.boxes, origGtBoxes);
+      const origCounts = computeCounts(origDet.boxes, origGtBoxes);
+      frameTp = origCounts.tp;
+      frameFp = origCounts.fp;
+      frameFn = origCounts.fn;
+      const frameId = path.parse(originalFilename).name;
+      await appendFrameMetrics(frameId, "original", frameAP, framePrecision, frameRecall, frameF1, origCounts.tp, origCounts.fp, origCounts.fn).catch(() => {});
+    }
 
     // Map output results
     const outputs: Record<string, YoloImageResult> = {};
@@ -112,10 +174,60 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       const basename = path.basename(entry.filePath);
       const det = results.detections[basename];
       if (det) {
+        const gtBoxes: YoloGtBox[] = det.gtBoxes ?? [];
+        const iouMatches = gtBoxes.length > 0 ? matchPredictionsToGT(det.boxes, gtBoxes) : undefined;
         outputs[entry.key] = {
           annotatedUrl: `/api/jobs/${jobId}/yolo/${encodeURIComponent(det.annotatedFile)}`,
           boxes: det.boxes,
+          gtBoxes: gtBoxes.length > 0 ? gtBoxes : undefined,
+          iouMatches,
         };
+      }
+    }
+
+    // Compute inpainted metrics vs GT (primary research metric) — average across all variants
+    let inpaintedFrameAP: number | undefined;
+    let inpaintedFramePrecision: number | undefined;
+    let inpaintedFrameRecall: number | undefined;
+    let inpaintedFrameF1: number | undefined;
+    let inpaintedFrameTp: number | undefined;
+    let inpaintedFrameFp: number | undefined;
+    let inpaintedFrameFn: number | undefined;
+    if (gtAvailable && origGtBoxes.length >= 0 && outputEntries.length > 0) {
+      const variantAPs: number[] = [];
+      const variantPrecisions: number[] = [];
+      const variantRecalls: number[] = [];
+      const variantF1s: number[] = [];
+      const variantTPs: number[] = [];
+      const variantFPs: number[] = [];
+      const variantFNs: number[] = [];
+
+      for (const entry of outputEntries) {
+        const basename = path.basename(entry.filePath);
+        const det = results.detections[basename];
+        if (det) {
+          variantAPs.push(computeAP(det.boxes, origGtBoxes));
+          variantPrecisions.push(computePrecision(det.boxes, origGtBoxes));
+          variantRecalls.push(computeRecall(det.boxes, origGtBoxes));
+          variantF1s.push(computeF1(det.boxes, origGtBoxes));
+          const c = computeCounts(det.boxes, origGtBoxes);
+          variantTPs.push(c.tp);
+          variantFPs.push(c.fp);
+          variantFNs.push(c.fn);
+        }
+      }
+
+      if (variantAPs.length > 0) {
+        const mean = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
+        inpaintedFrameAP        = mean(variantAPs);
+        inpaintedFramePrecision = mean(variantPrecisions);
+        inpaintedFrameRecall    = mean(variantRecalls);
+        inpaintedFrameF1        = mean(variantF1s);
+        inpaintedFrameTp        = mean(variantTPs);
+        inpaintedFrameFp        = mean(variantFPs);
+        inpaintedFrameFn        = mean(variantFNs);
+        const frameId = path.parse(originalFilename).name;
+        await appendFrameMetrics(frameId, "inpainted", inpaintedFrameAP, inpaintedFramePrecision, inpaintedFrameRecall, inpaintedFrameF1, inpaintedFrameTp, inpaintedFrameFp, inpaintedFrameFn).catch(() => {});
       }
     }
 
@@ -125,6 +237,21 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       confThreshold: results.confThreshold,
       original,
       outputs,
+      gtAvailable,
+      frameAP,
+      framePrecision,
+      frameRecall,
+      frameF1,
+      frameTp,
+      frameFp,
+      frameFn,
+      inpaintedFrameAP,
+      inpaintedFramePrecision,
+      inpaintedFrameRecall,
+      inpaintedFrameF1,
+      inpaintedFrameTp,
+      inpaintedFrameFp,
+      inpaintedFrameFn,
     };
 
     const updatedJob = await readJob(jobId);
@@ -140,6 +267,7 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
           status: "failed",
           model: path.basename(YOLO_MODEL_PATH),
           confThreshold: YOLO_CONF_THRESHOLD,
+          gtAvailable,
           error: (error as Error).message,
         },
       });

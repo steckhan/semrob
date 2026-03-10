@@ -11,9 +11,25 @@ type YoloBox = {
   h: number;
 };
 
+type YoloGtBox = {
+  class: number;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+};
+
+type IouMatch = {
+  predIdx: number;
+  gtIdx: number | null;
+  iou: number;
+};
+
 type YoloImageResult = {
   annotatedUrl: string;
   boxes: YoloBox[];
+  gtBoxes?: YoloGtBox[];
+  iouMatches?: IouMatch[];
 };
 
 type Props = {
@@ -38,6 +54,54 @@ function confidenceColor(conf: number): string {
   return "var(--red)";
 }
 
+function iouColor(iou: number): string {
+  if (iou >= 0.7) return "var(--green)";
+  if (iou >= 0.5) return "var(--orange)";
+  return "var(--red)";
+}
+
+function DetectionList({ result }: { result: YoloImageResult }) {
+  const { boxes, iouMatches } = result;
+
+  const matchMap = new Map<number, IouMatch>();
+  if (iouMatches) {
+    for (const m of iouMatches) {
+      matchMap.set(m.predIdx, m);
+    }
+  }
+
+  if (boxes.length === 0) return null;
+
+  return (
+    <div className="yolo-conf-list">
+      {boxes.map((box, i) => {
+        const match = matchMap.get(i);
+        return (
+          <div key={i} className="yolo-conf-row" style={{ flexWrap: "wrap", gap: "4px 8px" }}>
+            <span className="yolo-conf-label">
+              #{i + 1} {className(box.class)}
+            </span>
+            <span className="yolo-conf-value" style={{ color: confidenceColor(box.confidence) }}>
+              conf: {(box.confidence * 100).toFixed(1)}%
+            </span>
+            {match !== undefined && (
+              match.gtIdx !== null ? (
+                <span style={{ fontSize: "0.7rem", color: iouColor(match.iou) }}>
+                  IoU: {match.iou.toFixed(2)} ✓
+                </span>
+              ) : (
+                <span style={{ fontSize: "0.7rem", color: "var(--red)" }}>
+                  IoU: — FP
+                </span>
+              )
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function YoloCompareModal({
   originalResult,
   inpaintedResult,
@@ -51,6 +115,8 @@ export default function YoloCompareModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const hasGt = !!(originalResult.gtBoxes?.length || inpaintedResult.gtBoxes?.length);
 
   return (
     <div className="compare-overlay" onClick={onClose}>
@@ -66,6 +132,15 @@ export default function YoloCompareModal({
           </button>
         </div>
 
+        {/* Legend */}
+        {hasGt && (
+          <div style={{ padding: "6px 16px", fontSize: "0.68rem", color: "var(--text-dim)", display: "flex", gap: 16 }}>
+            <span><span style={{ color: "#6496ff", fontWeight: 700 }}>■</span> Ground truth (GT)</span>
+            <span><span style={{ color: "var(--green)", fontWeight: 700 }}>■</span> Prediction conf ≥ 0.5</span>
+            <span><span style={{ color: "var(--orange)", fontWeight: 700 }}>■</span> Prediction conf &lt; 0.5</span>
+          </div>
+        )}
+
         {/* Side-by-side images */}
         <div className="yolo-modal-images">
           <div className="yolo-modal-side">
@@ -76,6 +151,11 @@ export default function YoloCompareModal({
                 style={{ color: originalResult.boxes.length > 0 ? "var(--red)" : "var(--green)" }}
               >
                 {originalResult.boxes.length} detection{originalResult.boxes.length !== 1 ? "s" : ""}
+                {originalResult.gtBoxes && originalResult.gtBoxes.length > 0 && (
+                  <span style={{ marginLeft: 6, color: "#6496ff" }}>
+                    {originalResult.gtBoxes.length} GT
+                  </span>
+                )}
               </span>
             </div>
             {originalResult.annotatedUrl ? (
@@ -87,23 +167,8 @@ export default function YoloCompareModal({
             ) : (
               <div className="yolo-modal-no-img">No annotated image</div>
             )}
-            {/* Confidence list */}
             {originalResult.boxes.length > 0 && (
-              <div className="yolo-conf-list">
-                {originalResult.boxes.map((box, i) => (
-                  <div key={i} className="yolo-conf-row">
-                    <span className="yolo-conf-label">
-                      #{i + 1} {className(box.class)}
-                    </span>
-                    <span
-                      className="yolo-conf-value"
-                      style={{ color: confidenceColor(box.confidence) }}
-                    >
-                      {(box.confidence * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <DetectionList result={originalResult} />
             )}
           </div>
 
@@ -117,6 +182,11 @@ export default function YoloCompareModal({
                 style={{ color: inpaintedResult.boxes.length > 0 ? "var(--red)" : "var(--green)" }}
               >
                 {inpaintedResult.boxes.length} detection{inpaintedResult.boxes.length !== 1 ? "s" : ""}
+                {inpaintedResult.gtBoxes && inpaintedResult.gtBoxes.length > 0 && (
+                  <span style={{ marginLeft: 6, color: "#6496ff" }}>
+                    {inpaintedResult.gtBoxes.length} GT
+                  </span>
+                )}
               </span>
             </div>
             {inpaintedResult.annotatedUrl ? (
@@ -128,23 +198,8 @@ export default function YoloCompareModal({
             ) : (
               <div className="yolo-modal-no-img">No annotated image</div>
             )}
-            {/* Confidence list */}
             {inpaintedResult.boxes.length > 0 ? (
-              <div className="yolo-conf-list">
-                {inpaintedResult.boxes.map((box, i) => (
-                  <div key={i} className="yolo-conf-row">
-                    <span className="yolo-conf-label">
-                      #{i + 1} {className(box.class)}
-                    </span>
-                    <span
-                      className="yolo-conf-value"
-                      style={{ color: confidenceColor(box.confidence) }}
-                    >
-                      {(box.confidence * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <DetectionList result={inpaintedResult} />
             ) : (
               <p className="hint" style={{ padding: "8px 0", color: "var(--green)" }}>
                 No hands detected — glove concealment successful ✓

@@ -104,6 +104,7 @@ export async function runBatch(batchId: string): Promise<void> {
           : undefined,
         inpaintMode: current.inpaintMode,
         openaiModel: current.inpaintMode === "api" ? current.openaiModel : undefined,
+        originalFilename: subJob.originalName,
       });
 
       // Wait for the job to complete by polling the job file

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { readBatch, writeBatch, runBatch } from "@/lib/batchRunner";
+import { resetMetrics } from "@/lib/metricsStore";
 
 /**
  * POST /api/batch/[batchId]/run
@@ -27,6 +28,9 @@ export async function POST(
 
   // Mark as running immediately so the response is fast
   await writeBatch({ ...batch, status: "running", startedAt: new Date().toISOString() });
+
+  // Reset accumulated metrics so this run starts with a clean slate
+  await resetMetrics();
 
   // Spawn async — don't await
   void runBatch(batchId).catch(async (err) => {

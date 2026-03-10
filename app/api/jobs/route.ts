@@ -161,6 +161,7 @@ export async function POST(request: Request) {
       inpaintMode: inpaintMode as "local" | "api",
       openaiApiKey: inpaintMode === "api" ? openaiApiKey : undefined,
       openaiModel: inpaintMode === "api" ? openaiModel : undefined,
+      originalFilename: imageFile.name,
     });
 
     return NextResponse.json(job);

@@ -140,6 +140,7 @@ export type CreateJobInput = {
   inpaintMode?: "local" | "api";
   openaiApiKey?: string;
   openaiModel?: string;
+  originalFilename?: string;
 };
 
 export async function createJob({
@@ -152,6 +153,7 @@ export async function createJob({
   inpaintMode = "local",
   openaiApiKey,
   openaiModel,
+  originalFilename,
 }: CreateJobInput): Promise<JobRecord> {
   await ensureJobStore();
 
@@ -197,6 +199,7 @@ export async function createJob({
     inpaintMode,
     openaiModel: inpaintMode === "api" ? (openaiModel ?? "gpt-image-1") : undefined,
     comfyBaseUrl: inpaintMode !== "api" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
+    originalFilename,
     params,
     workflows: workflows.map((workflow) => workflow.name),
     promptIds: {},

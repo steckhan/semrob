@@ -63,9 +63,25 @@ export type YoloBox = {
   h: number;
 };
 
+export type YoloGtBox = {
+  class: number;
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+};
+
+export type IouMatch = {
+  predIdx: number;
+  gtIdx: number | null; // null = false positive (no GT match)
+  iou: number;
+};
+
 export type YoloImageResult = {
   annotatedUrl: string;
   boxes: YoloBox[];
+  gtBoxes?: YoloGtBox[];
+  iouMatches?: IouMatch[];
 };
 
 export type YoloJobResults = {
@@ -74,7 +90,39 @@ export type YoloJobResults = {
   confThreshold: number;
   original?: YoloImageResult;
   outputs?: Record<string, YoloImageResult>;
+  gtAvailable?: boolean;
+  // Original image vs GT (secondary baseline)
+  frameAP?: number;
+  framePrecision?: number;
+  frameRecall?: number;
+  frameF1?: number;
+  frameTp?: number;
+  frameFp?: number;
+  frameFn?: number;
+  // Inpainted image(s) vs GT — averaged across variants (primary research metric)
+  inpaintedFrameAP?: number;
+  inpaintedFramePrecision?: number;
+  inpaintedFrameRecall?: number;
+  inpaintedFrameF1?: number;
+  inpaintedFrameTp?: number;
+  inpaintedFrameFp?: number;
+  inpaintedFrameFn?: number;
   error?: string;
+};
+
+export type MetricsBucket = {
+  mAP: number;
+  mAR: number;
+  globalF1: number;   // micro-averaged: 2·ΣTP / (2·ΣTP + ΣFP + ΣFN)
+  totalTP: number;
+  totalFP: number;
+  totalFN: number;
+  frameCount: number;
+};
+
+export type AccumulatedMetrics = {
+  inpainted: MetricsBucket; // primary: how well inpainted images evade detector
+  original: MetricsBucket;  // secondary: baseline detection on original images
 };
 
 export type JobStatus = "queued" | "running" | "completed" | "failed";
@@ -127,6 +175,7 @@ export type JobRecord = {
   inpaintMode?: "local" | "api";
   openaiModel?: string;
   comfyBaseUrl?: string;
+  originalFilename?: string;
   params: InpaintParams;
   workflows: string[];
   promptIds: Record<string, string>;
