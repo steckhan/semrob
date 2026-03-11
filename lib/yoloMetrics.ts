@@ -18,7 +18,9 @@ export function boxIoU(a: YoloBox | { cx: number; cy: number; w: number; h: numb
 }
 
 /**
- * Greedy IoU matching: match predictions to GT boxes (same class, IoU >= threshold).
+ * Confidence-sorted matching: match predictions to GT boxes (same class, IoU >= threshold).
+ * Processes predictions in descending confidence order — consistent with PASCAL VOC/COCO/YOLO eval
+ * and with computeAP/computePrecision/computeRecall/computeCounts/computeF1.
  * Returns one IouMatch per prediction (gtIdx=null means false positive).
  */
 export function matchPredictionsToGT(
@@ -26,35 +28,26 @@ export function matchPredictionsToGT(
   gts: Array<{ class: number; cx: number; cy: number; w: number; h: number }>,
   iouThresh = 0.5,
 ): IouMatch[] {
-  const pairs: Array<{ predIdx: number; gtIdx: number; iou: number }> = [];
+  // Sort by confidence descending, preserving original indices
+  const indexed = preds.map((p, i) => ({ pred: p, origIdx: i }));
+  indexed.sort((a, b) => b.pred.confidence - a.pred.confidence);
 
-  for (let pi = 0; pi < preds.length; pi++) {
-    for (let gi = 0; gi < gts.length; gi++) {
-      if (preds[pi].class !== gts[gi].class) continue;
-      const iou = boxIoU(preds[pi], gts[gi]);
-      pairs.push({ predIdx: pi, gtIdx: gi, iou });
-    }
-  }
-
-  pairs.sort((a, b) => b.iou - a.iou);
-
-  const usedPred = new Set<number>();
   const usedGt = new Set<number>();
   const matches: IouMatch[] = [];
 
-  for (const pair of pairs) {
-    if (usedPred.has(pair.predIdx) || usedGt.has(pair.gtIdx)) continue;
-    if (pair.iou >= iouThresh) {
-      matches.push({ predIdx: pair.predIdx, gtIdx: pair.gtIdx, iou: pair.iou });
-      usedPred.add(pair.predIdx);
-      usedGt.add(pair.gtIdx);
+  for (const { pred, origIdx } of indexed) {
+    let bestIou = 0;
+    let bestGi = -1;
+    for (let gi = 0; gi < gts.length; gi++) {
+      if (usedGt.has(gi) || pred.class !== gts[gi].class) continue;
+      const iou = boxIoU(pred, gts[gi]);
+      if (iou > bestIou) { bestIou = iou; bestGi = gi; }
     }
-  }
-
-  // Remaining predictions are false positives
-  for (let pi = 0; pi < preds.length; pi++) {
-    if (!usedPred.has(pi)) {
-      matches.push({ predIdx: pi, gtIdx: null, iou: 0 });
+    if (bestIou >= iouThresh && bestGi >= 0) {
+      matches.push({ predIdx: origIdx, gtIdx: bestGi, iou: bestIou });
+      usedGt.add(bestGi);
+    } else {
+      matches.push({ predIdx: origIdx, gtIdx: null, iou: 0 });
     }
   }
 

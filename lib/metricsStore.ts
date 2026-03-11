@@ -14,6 +14,10 @@ type FrameEntry = {
   tp: number;
   fp: number;
   fn: number;
+  iouSum: number;        // sum of IoU scores of TP matches in this frame
+  tpMatchCount: number;  // number of TP matches in this frame (for IoU denominator)
+  confSum: number;       // sum of confidence scores of all predicted boxes in this frame
+  boxCount: number;      // total predicted boxes in this frame (for confidence denominator)
   timestamp: string;
 };
 
@@ -26,6 +30,13 @@ type Bucket = {
   totalFP: number;
   totalFN: number;
   frameCount: number;
+  // Micro-averaged across all frames (sum then divide once)
+  totalIouSum: number;
+  totalTpMatchCount: number;
+  totalConfSum: number;
+  totalBoxCount: number;
+  meanIoU: number;        // computed: totalIouSum / totalTpMatchCount
+  meanConfidence: number; // computed: totalConfSum / totalBoxCount
 };
 
 type MetricsAccumulator = {
@@ -34,7 +45,7 @@ type MetricsAccumulator = {
 };
 
 function emptyBucket(): Bucket {
-  return { frames: {}, mAP: 0, mAR: 0, globalF1: 0, totalTP: 0, totalFP: 0, totalFN: 0, frameCount: 0 };
+  return { frames: {}, mAP: 0, mAR: 0, globalF1: 0, totalTP: 0, totalFP: 0, totalFN: 0, frameCount: 0, totalIouSum: 0, totalTpMatchCount: 0, totalConfSum: 0, totalBoxCount: 0, meanIoU: 0, meanConfidence: 0 };
 }
 
 async function readAccumulator(): Promise<MetricsAccumulator> {
@@ -67,6 +78,13 @@ function recompute(bucket: Bucket): void {
   const denom = 2 * bucket.totalTP + bucket.totalFP + bucket.totalFN;
   bucket.globalF1 = denom > 0 ? (2 * bucket.totalTP) / denom : 0;
   bucket.frameCount = n;
+  // Micro-average: sum raw values across all frames, divide once
+  bucket.totalIouSum       = entries.reduce((s, e) => s + (e.iouSum ?? 0), 0);
+  bucket.totalTpMatchCount = entries.reduce((s, e) => s + (e.tpMatchCount ?? 0), 0);
+  bucket.totalConfSum      = entries.reduce((s, e) => s + (e.confSum ?? 0), 0);
+  bucket.totalBoxCount     = entries.reduce((s, e) => s + (e.boxCount ?? 0), 0);
+  bucket.meanIoU        = bucket.totalTpMatchCount > 0 ? bucket.totalIouSum / bucket.totalTpMatchCount : 0;
+  bucket.meanConfidence = bucket.totalBoxCount     > 0 ? bucket.totalConfSum / bucket.totalBoxCount    : 0;
 }
 
 /**
@@ -84,9 +102,13 @@ export async function appendFrameMetrics(
   tp: number,
   fp: number,
   fn: number,
+  iouSum = 0,
+  tpMatchCount = 0,
+  confSum = 0,
+  boxCount = 0,
 ): Promise<void> {
   const data = await readAccumulator();
-  data[bucket].frames[frameId] = { ap, precision, recall, f1, tp, fp, fn, timestamp: new Date().toISOString() };
+  data[bucket].frames[frameId] = { ap, precision, recall, f1, tp, fp, fn, iouSum, tpMatchCount, confSum, boxCount, timestamp: new Date().toISOString() };
   recompute(data[bucket]);
   await writeAccumulator(data);
 }
@@ -107,6 +129,8 @@ export async function getAccumulatedMetrics(): Promise<AccumulatedMetrics> {
     totalFP: b.totalFP,
     totalFN: b.totalFN,
     frameCount: b.frameCount,
+    meanIoU: b.meanIoU ?? 0,
+    meanConfidence: b.meanConfidence ?? 0,
   });
   return {
     inpainted: toBucket(data.inpainted),

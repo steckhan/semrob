@@ -76,7 +76,7 @@ type YoloJobResults = {
   error?: string;
 };
 
-type MetricsBucket = { mAP: number; mAR: number; globalF1: number; totalTP: number; totalFP: number; totalFN: number; frameCount: number };
+type MetricsBucket = { mAP: number; mAR: number; globalF1: number; totalTP: number; totalFP: number; totalFN: number; frameCount: number; meanIoU: number; meanConfidence: number };
 type AccumulatedMetrics = { inpainted: MetricsBucket; original: MetricsBucket };
 
 type JobRecord = {
@@ -370,29 +370,37 @@ function JobResultSection({
             )}
             {job.yoloResults.status === "completed" && (job.yoloResults.inpaintedFrameAP !== undefined || job.yoloResults.inpaintedFrameRecall !== undefined) && (() => {
               const yr = job.yoloResults!;
-              // Δ = baseline − inpainted; positive = detector evaded (good)
               const hasDelta = yr.framePrecision !== undefined && yr.inpaintedFramePrecision !== undefined;
               const dc = (d: number) => d > 0.005 ? "#06b6d4" : d < -0.005 ? "#f97316" : "var(--text-muted)";
               const fd = (d: number) => (d >= 0 ? "+" : "") + d.toFixed(2);
+              // Color helpers
+              const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+              const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+              const f1Color   = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+              const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
+              const iouColor  = (v: number) => v >= 0.75 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+              const confColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+              // Derived FNR for single mode
+              const inpFNR = yr.inpaintedFrameRecall !== undefined ? 1 - yr.inpaintedFrameRecall : undefined;
+              const origFNR = yr.frameRecall !== undefined ? 1 - yr.frameRecall : undefined;
               return (
                 <>
                   <div style={{ marginBottom: 8, padding: "6px 8px", background: "var(--surface2)", borderRadius: 4 }}>
-                    <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--green)", marginBottom: 4 }}>Inpainted vs GT</div>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--green)", marginBottom: 4 }}>Inpainted vs GT</div>
                     {(yr.inpaintedFrameTp !== undefined || yr.inpaintedFrameFp !== undefined || yr.inpaintedFrameFn !== undefined) && (
-                      <div style={{ display: "flex", gap: 8, fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: 4 }}>
+                      <div style={{ display: "flex", gap: 8, fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 4 }}>
                         {yr.inpaintedFrameTp !== undefined && <span>TP <strong style={{ color: "var(--green)" }}>{Math.round(yr.inpaintedFrameTp)}</strong></span>}
                         {yr.inpaintedFrameFp !== undefined && <span>FP <strong style={{ color: "#f97316" }}>{Math.round(yr.inpaintedFrameFp)}</strong></span>}
                         {yr.inpaintedFrameFn !== undefined && <span>FN <strong style={{ color: "var(--red)" }}>{Math.round(yr.inpaintedFrameFn)}</strong></span>}
-                        <span style={{ opacity: 0.5 }}>TN n/a</span>
                       </div>
                     )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.67rem", color: "var(--text-dim)" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.80rem", color: "var(--text-dim)" }}>
                       {yr.inpaintedFramePrecision !== undefined && (
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span>Precision</span>
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <strong style={{ color: "var(--text)" }}>{yr.inpaintedFramePrecision.toFixed(2)}</strong>
-                            {hasDelta && yr.framePrecision !== undefined && <span style={{ fontWeight: 600, color: dc(yr.framePrecision - yr.inpaintedFramePrecision) }}>Δ{fd(yr.framePrecision - yr.inpaintedFramePrecision)}</span>}
+                            <strong style={{ color: precColor(yr.inpaintedFramePrecision) }}>{yr.inpaintedFramePrecision.toFixed(2)}</strong>
+                            {hasDelta && yr.framePrecision !== undefined && <span style={{ fontWeight: 600, color: dc(yr.inpaintedFramePrecision - yr.framePrecision) }}>Δ{fd(yr.inpaintedFramePrecision - yr.framePrecision)}</span>}
                           </span>
                         </div>
                       )}
@@ -400,8 +408,8 @@ function JobResultSection({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span>Recall</span>
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <strong style={{ color: "var(--text)" }}>{yr.inpaintedFrameRecall.toFixed(2)}</strong>
-                            {hasDelta && yr.frameRecall !== undefined && <span style={{ fontWeight: 600, color: dc(yr.frameRecall - yr.inpaintedFrameRecall) }}>Δ{fd(yr.frameRecall - yr.inpaintedFrameRecall)}</span>}
+                            <strong style={{ color: recColor(yr.inpaintedFrameRecall) }}>{yr.inpaintedFrameRecall.toFixed(2)}</strong>
+                            {hasDelta && yr.frameRecall !== undefined && <span style={{ fontWeight: 600, color: dc(yr.inpaintedFrameRecall - yr.frameRecall) }}>Δ{fd(yr.inpaintedFrameRecall - yr.frameRecall)}</span>}
                           </span>
                         </div>
                       )}
@@ -409,8 +417,35 @@ function JobResultSection({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span>F1 Score</span>
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <strong style={{ color: "var(--text)" }}>{yr.inpaintedFrameF1.toFixed(2)}</strong>
-                            {hasDelta && yr.frameF1 !== undefined && <span style={{ fontWeight: 600, color: dc(yr.frameF1 - yr.inpaintedFrameF1) }}>Δ{fd(yr.frameF1 - yr.inpaintedFrameF1)}</span>}
+                            <strong style={{ color: f1Color(yr.inpaintedFrameF1) }}>{yr.inpaintedFrameF1.toFixed(2)}</strong>
+                            {hasDelta && yr.frameF1 !== undefined && <span style={{ fontWeight: 600, color: dc(yr.inpaintedFrameF1 - yr.frameF1) }}>Δ{fd(yr.inpaintedFrameF1 - yr.frameF1)}</span>}
+                          </span>
+                        </div>
+                      )}
+                      {inpFNR !== undefined && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span>False Neg. Rate</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <strong style={{ color: fnrColor(inpFNR) }}>{inpFNR.toFixed(2)}</strong>
+                            {hasDelta && origFNR !== undefined && <span style={{ fontWeight: 600, color: dc(inpFNR - origFNR) }}>Δ{fd(inpFNR - origFNR)}</span>}
+                          </span>
+                        </div>
+                      )}
+                      {yr.inpaintedFrameMeanIoU !== undefined && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span>Mean IoU</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <strong style={{ color: iouColor(yr.inpaintedFrameMeanIoU) }}>{yr.inpaintedFrameMeanIoU.toFixed(2)}</strong>
+                            {hasDelta && yr.frameMeanIoU !== undefined && <span style={{ fontWeight: 600, color: dc(yr.inpaintedFrameMeanIoU - yr.frameMeanIoU) }}>Δ{fd(yr.inpaintedFrameMeanIoU - yr.frameMeanIoU)}</span>}
+                          </span>
+                        </div>
+                      )}
+                      {yr.inpaintedFrameMeanConfidence !== undefined && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span>Mean Confidence</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <strong style={{ color: confColor(yr.inpaintedFrameMeanConfidence) }}>{yr.inpaintedFrameMeanConfidence.toFixed(2)}</strong>
+                            {hasDelta && yr.frameMeanConfidence !== undefined && <span style={{ fontWeight: 600, color: dc(yr.inpaintedFrameMeanConfidence - yr.frameMeanConfidence) }}>Δ{fd(yr.inpaintedFrameMeanConfidence - yr.frameMeanConfidence)}</span>}
                           </span>
                         </div>
                       )}
@@ -418,32 +453,49 @@ function JobResultSection({
                   </div>
                   {(yr.framePrecision !== undefined || yr.frameRecall !== undefined) && (
                     <div style={{ marginBottom: 8, padding: "6px 8px", background: "var(--surface2)", borderRadius: 4, opacity: 0.7 }}>
-                      <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-dim)", marginBottom: 4 }}>Original vs GT (baseline)</div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-dim)", marginBottom: 4 }}>Original vs GT</div>
                       {(yr.frameTp !== undefined || yr.frameFp !== undefined || yr.frameFn !== undefined) && (
-                        <div style={{ display: "flex", gap: 8, fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: 4 }}>
+                        <div style={{ display: "flex", gap: 8, fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 4 }}>
                           {yr.frameTp !== undefined && <span>TP <strong style={{ color: "var(--green)" }}>{yr.frameTp}</strong></span>}
                           {yr.frameFp !== undefined && <span>FP <strong style={{ color: "#f97316" }}>{yr.frameFp}</strong></span>}
                           {yr.frameFn !== undefined && <span>FN <strong style={{ color: "var(--red)" }}>{yr.frameFn}</strong></span>}
-                          <span style={{ opacity: 0.5 }}>TN n/a</span>
                         </div>
                       )}
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.67rem", color: "var(--text-dim)" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.80rem", color: "var(--text-dim)" }}>
                         {yr.framePrecision !== undefined && (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span>Precision</span>
-                            <strong>{yr.framePrecision.toFixed(2)}</strong>
+                            <strong style={{ color: precColor(yr.framePrecision) }}>{yr.framePrecision.toFixed(2)}</strong>
                           </div>
                         )}
                         {yr.frameRecall !== undefined && (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span>Recall</span>
-                            <strong>{yr.frameRecall.toFixed(2)}</strong>
+                            <strong style={{ color: recColor(yr.frameRecall) }}>{yr.frameRecall.toFixed(2)}</strong>
                           </div>
                         )}
                         {yr.frameF1 !== undefined && (
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <span>F1 Score</span>
-                            <strong>{yr.frameF1.toFixed(2)}</strong>
+                            <strong style={{ color: f1Color(yr.frameF1) }}>{yr.frameF1.toFixed(2)}</strong>
+                          </div>
+                        )}
+                        {origFNR !== undefined && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>False Neg. Rate</span>
+                            <strong style={{ color: fnrColor(origFNR) }}>{origFNR.toFixed(2)}</strong>
+                          </div>
+                        )}
+                        {yr.frameMeanIoU !== undefined && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>Mean IoU</span>
+                            <strong style={{ color: iouColor(yr.frameMeanIoU) }}>{yr.frameMeanIoU.toFixed(2)}</strong>
+                          </div>
+                        )}
+                        {yr.frameMeanConfidence !== undefined && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>Mean Confidence</span>
+                            <strong style={{ color: confColor(yr.frameMeanConfidence) }}>{yr.frameMeanConfidence.toFixed(2)}</strong>
                           </div>
                         )}
                       </div>
@@ -1675,12 +1727,9 @@ export default function HomePage() {
                 )}
                 {accMetrics && accMetrics.inpainted.frameCount > 0 && (() => {
                   const hasBase = accMetrics.original.frameCount > 0;
-                  // Δ = baseline − inpainted; positive means detector was evaded (research goal)
                   const deltaColor = (d: number) => d > 0.005 ? "#06b6d4" : d < -0.005 ? "#f97316" : "var(--text-muted)";
                   const fmtDelta = (d: number) => (d >= 0 ? "+" : "") + d.toFixed(2);
-                  const dAP  = hasBase ? accMetrics.original.mAP       - accMetrics.inpainted.mAP       : null;
-                  const dAR  = hasBase ? accMetrics.original.mAR       - accMetrics.inpainted.mAR       : null;
-                  const dF1  = hasBase ? accMetrics.original.globalF1  - accMetrics.inpainted.globalF1  : null;
+                  const dF1  = hasBase ? accMetrics.inpainted.globalF1 - accMetrics.original.globalF1 : null;
                   // Derived from raw counts
                   const inp = accMetrics.inpainted;
                   const orig = accMetrics.original;
@@ -1690,9 +1739,18 @@ export default function HomePage() {
                   const origGlobalPrec = (orig.totalTP + orig.totalFP) > 0 ? orig.totalTP / (orig.totalTP + orig.totalFP) : 0;
                   const origGlobalRec  = (orig.totalTP + orig.totalFN) > 0 ? orig.totalTP / (orig.totalTP + orig.totalFN) : 0;
                   const origFNR        = 1 - origGlobalRec;
-                  const dPrec = hasBase ? origGlobalPrec - inpGlobalPrec : null;
-                  const dRec  = hasBase ? origGlobalRec  - inpGlobalRec  : null;
-                  const dFNR  = hasBase ? inpFNR - origFNR : null;
+                  const dPrec  = hasBase ? inpGlobalPrec - origGlobalPrec : null;
+                  const dRec   = hasBase ? inpGlobalRec  - origGlobalRec  : null;
+                  const dFNR   = hasBase ? inpFNR - origFNR : null;
+                  const dIoU   = hasBase ? inp.meanIoU - orig.meanIoU : null;
+                  const dConf  = hasBase ? inp.meanConfidence - orig.meanConfidence : null;
+                  // Color helpers
+                  const precColor = (v: number) => v >= 0.8  ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const f1Color   = (v: number) => v >= 0.8  ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const fnrColor  = (v: number) => v <= 0.2  ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
+                  const iouColor  = (v: number) => v >= 0.75 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const confColor = (v: number) => v >= 0.8  ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
                   return (
                     <>
                       <div style={{ borderTop: "1px solid var(--border)", margin: "8px 0" }} />
@@ -1703,85 +1761,83 @@ export default function HomePage() {
                         <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>TP <strong style={{ color: "#22c55e" }}>{accMetrics.inpainted.totalTP}</strong></span>
                         <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FP <strong style={{ color: "#f97316" }}>{accMetrics.inpainted.totalFP}</strong></span>
                         <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FN <strong style={{ color: "#ef4444" }}>{accMetrics.inpainted.totalFN}</strong></span>
-                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)", opacity: 0.5 }}>TN n/a</span>
                       </div>
                       <div className="metric-row">
-                        <span className="metric-label">mAP@0.5</span>
+                        <span className="metric-label">F1 Score</span>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="metric-value positive">{accMetrics.inpainted.mAP.toFixed(2)}</span>
-                          {dAP !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dAP) }}>Δ {fmtDelta(dAP)}</span>}
-                        </span>
-                      </div>
-                      <div className="metric-row">
-                        <span className="metric-label">mAR@0.5</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="metric-value positive">{accMetrics.inpainted.mAR.toFixed(2)}</span>
-                          {dAR !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dAR) }}>Δ {fmtDelta(dAR)}</span>}
-                        </span>
-                      </div>
-                      <div className="metric-row">
-                        <span className="metric-label">Global F1 Score</span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="metric-value positive">{accMetrics.inpainted.globalF1.toFixed(2)}</span>
+                          <span className="metric-value" style={{ color: f1Color(accMetrics.inpainted.globalF1) }}>{accMetrics.inpainted.globalF1.toFixed(2)}</span>
                           {dF1 !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dF1) }}>Δ {fmtDelta(dF1)}</span>}
                         </span>
                       </div>
                       <div className="metric-row">
-                        <span className="metric-label">Global Precision</span>
+                        <span className="metric-label">Precision</span>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="metric-value positive">{inpGlobalPrec.toFixed(2)}</span>
+                          <span className="metric-value" style={{ color: precColor(inpGlobalPrec) }}>{inpGlobalPrec.toFixed(2)}</span>
                           {dPrec !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dPrec) }}>Δ {fmtDelta(dPrec)}</span>}
                         </span>
                       </div>
                       <div className="metric-row">
-                        <span className="metric-label">Global Recall</span>
+                        <span className="metric-label">Recall</span>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="metric-value positive">{inpGlobalRec.toFixed(2)}</span>
+                          <span className="metric-value" style={{ color: recColor(inpGlobalRec) }}>{inpGlobalRec.toFixed(2)}</span>
                           {dRec !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dRec) }}>Δ {fmtDelta(dRec)}</span>}
                         </span>
                       </div>
                       <div className="metric-row">
                         <span className="metric-label">False Neg. Rate</span>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="metric-value positive">{inpFNR.toFixed(2)}</span>
+                          <span className="metric-value" style={{ color: fnrColor(inpFNR) }}>{inpFNR.toFixed(2)}</span>
                           {dFNR !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dFNR) }}>Δ {fmtDelta(dFNR)}</span>}
+                        </span>
+                      </div>
+                      <div className="metric-row">
+                        <span className="metric-label">Mean IoU</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="metric-value" style={{ color: iouColor(inp.meanIoU) }}>{inp.meanIoU.toFixed(2)}</span>
+                          {dIoU !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dIoU) }}>Δ {fmtDelta(dIoU)}</span>}
+                        </span>
+                      </div>
+                      <div className="metric-row">
+                        <span className="metric-label">Mean Confidence</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="metric-value" style={{ color: confColor(inp.meanConfidence) }}>{inp.meanConfidence.toFixed(2)}</span>
+                          {dConf !== null && <span style={{ fontSize: "0.65rem", fontWeight: 600, color: deltaColor(dConf) }}>Δ {fmtDelta(dConf)}</span>}
                         </span>
                       </div>
                       {hasBase && (
                         <>
                           <div style={{ borderTop: "1px solid var(--border)", margin: "8px 0" }} />
                           <div className="metric-row">
-                            <span className="metric-label" style={{ fontSize: "0.62rem", opacity: 0.7 }}>Baseline (original)</span>
+                            <span className="metric-label" style={{ fontSize: "0.62rem", opacity: 0.7 }}>Original vs GT</span>
                           </div>
                           <div style={{ display: "flex", gap: 10, marginBottom: 4, paddingLeft: 2, opacity: 0.7 }}>
                             <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>TP <strong style={{ color: "#22c55e" }}>{accMetrics.original.totalTP}</strong></span>
                             <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FP <strong style={{ color: "#f97316" }}>{accMetrics.original.totalFP}</strong></span>
                             <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FN <strong style={{ color: "#ef4444" }}>{accMetrics.original.totalFN}</strong></span>
-                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)", opacity: 0.5 }}>TN n/a</span>
                           </div>
                           <div className="metric-row" style={{ opacity: 0.7 }}>
-                            <span className="metric-label">mAP@0.5</span>
-                            <span className="metric-value neutral">{accMetrics.original.mAP.toFixed(2)}</span>
+                            <span className="metric-label">F1 Score</span>
+                            <span className="metric-value" style={{ color: f1Color(accMetrics.original.globalF1) }}>{accMetrics.original.globalF1.toFixed(2)}</span>
                           </div>
                           <div className="metric-row" style={{ opacity: 0.7 }}>
-                            <span className="metric-label">mAR@0.5</span>
-                            <span className="metric-value neutral">{accMetrics.original.mAR.toFixed(2)}</span>
+                            <span className="metric-label">Precision</span>
+                            <span className="metric-value" style={{ color: precColor(origGlobalPrec) }}>{origGlobalPrec.toFixed(2)}</span>
                           </div>
                           <div className="metric-row" style={{ opacity: 0.7 }}>
-                            <span className="metric-label">Global F1 Score</span>
-                            <span className="metric-value neutral">{accMetrics.original.globalF1.toFixed(2)}</span>
-                          </div>
-                          <div className="metric-row" style={{ opacity: 0.7 }}>
-                            <span className="metric-label">Global Precision</span>
-                            <span className="metric-value neutral">{origGlobalPrec.toFixed(2)}</span>
-                          </div>
-                          <div className="metric-row" style={{ opacity: 0.7 }}>
-                            <span className="metric-label">Global Recall</span>
-                            <span className="metric-value neutral">{origGlobalRec.toFixed(2)}</span>
+                            <span className="metric-label">Recall</span>
+                            <span className="metric-value" style={{ color: recColor(origGlobalRec) }}>{origGlobalRec.toFixed(2)}</span>
                           </div>
                           <div className="metric-row" style={{ opacity: 0.7 }}>
                             <span className="metric-label">False Neg. Rate</span>
-                            <span className="metric-value neutral">{origFNR.toFixed(2)}</span>
+                            <span className="metric-value" style={{ color: fnrColor(origFNR) }}>{origFNR.toFixed(2)}</span>
+                          </div>
+                          <div className="metric-row" style={{ opacity: 0.7 }}>
+                            <span className="metric-label">Mean IoU</span>
+                            <span className="metric-value" style={{ color: iouColor(orig.meanIoU) }}>{orig.meanIoU.toFixed(2)}</span>
+                          </div>
+                          <div className="metric-row" style={{ opacity: 0.7 }}>
+                            <span className="metric-label">Mean Confidence</span>
+                            <span className="metric-value" style={{ color: confColor(orig.meanConfidence) }}>{orig.meanConfidence.toFixed(2)}</span>
                           </div>
                         </>
                       )}

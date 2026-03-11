@@ -99,6 +99,8 @@ export type YoloJobResults = {
   frameTp?: number;
   frameFp?: number;
   frameFn?: number;
+  frameMeanIoU?: number;         // avg IoU of TP matches, original image
+  frameMeanConfidence?: number;  // avg confidence of all predicted boxes, original image
   // Inpainted image(s) vs GT — averaged across variants (primary research metric)
   inpaintedFrameAP?: number;
   inpaintedFramePrecision?: number;
@@ -107,17 +109,21 @@ export type YoloJobResults = {
   inpaintedFrameTp?: number;
   inpaintedFrameFp?: number;
   inpaintedFrameFn?: number;
+  inpaintedFrameMeanIoU?: number;        // avg IoU of TP matches, inpainted image(s)
+  inpaintedFrameMeanConfidence?: number; // avg confidence of all predicted boxes, inpainted
   error?: string;
 };
 
 export type MetricsBucket = {
   mAP: number;
   mAR: number;
-  globalF1: number;   // micro-averaged: 2·ΣTP / (2·ΣTP + ΣFP + ΣFN)
+  globalF1: number;        // micro-averaged: 2·ΣTP / (2·ΣTP + ΣFP + ΣFN)
   totalTP: number;
   totalFP: number;
   totalFN: number;
   frameCount: number;
+  meanIoU: number;         // avg IoU of TP-matched pairs only
+  meanConfidence: number;  // avg confidence of all predicted boxes (TP + FP)
 };
 
 export type AccumulatedMetrics = {

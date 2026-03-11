@@ -155,6 +155,8 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
     let frameTp: number | undefined;
     let frameFp: number | undefined;
     let frameFn: number | undefined;
+    let frameMeanIoU: number | undefined;
+    let frameMeanConfidence: number | undefined;
     if (gtAvailable && origDet) {
       frameAP        = computeAP(origDet.boxes, origGtBoxes);
       framePrecision = computePrecision(origDet.boxes, origGtBoxes);
@@ -164,8 +166,16 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       frameTp = origCounts.tp;
       frameFp = origCounts.fp;
       frameFn = origCounts.fn;
+      // Raw sums for micro-averaged batch IoU and confidence
+      const origTpMatches = origIouMatches.filter(m => m.gtIdx !== null);
+      const origIouSum    = origTpMatches.reduce((s, m) => s + m.iou, 0);
+      const origConfSum   = origDet.boxes.reduce((s, b) => s + b.confidence, 0);
+      const origBoxCount  = origDet.boxes.length;
+      // Per-frame means (used in single mode display)
+      frameMeanIoU        = origTpMatches.length > 0 ? origIouSum / origTpMatches.length : 0;
+      frameMeanConfidence = origBoxCount > 0 ? origConfSum / origBoxCount : 0;
       const frameId = path.parse(originalFilename).name;
-      await appendFrameMetrics(frameId, "original", frameAP, framePrecision, frameRecall, frameF1, origCounts.tp, origCounts.fp, origCounts.fn).catch(() => {});
+      await appendFrameMetrics(frameId, "original", frameAP, framePrecision, frameRecall, frameF1, origCounts.tp, origCounts.fp, origCounts.fn, origIouSum, origTpMatches.length, origConfSum, origBoxCount).catch(() => {});
     }
 
     // Map output results
@@ -193,6 +203,8 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
     let inpaintedFrameTp: number | undefined;
     let inpaintedFrameFp: number | undefined;
     let inpaintedFrameFn: number | undefined;
+    let inpaintedFrameMeanIoU: number | undefined;
+    let inpaintedFrameMeanConfidence: number | undefined;
     if (gtAvailable && origGtBoxes.length >= 0 && outputEntries.length > 0) {
       const variantAPs: number[] = [];
       const variantPrecisions: number[] = [];
@@ -201,6 +213,11 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       const variantTPs: number[] = [];
       const variantFPs: number[] = [];
       const variantFNs: number[] = [];
+      // Raw sums across all variants (for micro-averaging in batch store)
+      let totalIouSum = 0;
+      let totalTpMatchCount = 0;
+      let totalConfSum = 0;
+      let totalBoxCount = 0;
 
       for (const entry of outputEntries) {
         const basename = path.basename(entry.filePath);
@@ -214,6 +231,13 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
           variantTPs.push(c.tp);
           variantFPs.push(c.fp);
           variantFNs.push(c.fn);
+          // Accumulate raw IoU and confidence sums across variants
+          const varIouMatches = matchPredictionsToGT(det.boxes, origGtBoxes);
+          const varTpMatches  = varIouMatches.filter(m => m.gtIdx !== null);
+          totalIouSum      += varTpMatches.reduce((s, m) => s + m.iou, 0);
+          totalTpMatchCount += varTpMatches.length;
+          totalConfSum     += det.boxes.reduce((s, b) => s + b.confidence, 0);
+          totalBoxCount    += det.boxes.length;
         }
       }
 
@@ -226,8 +250,11 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
         inpaintedFrameTp        = mean(variantTPs);
         inpaintedFrameFp        = mean(variantFPs);
         inpaintedFrameFn        = mean(variantFNs);
+        // Per-frame means for single mode display (avg across variants)
+        inpaintedFrameMeanIoU        = totalTpMatchCount > 0 ? totalIouSum / totalTpMatchCount : 0;
+        inpaintedFrameMeanConfidence = totalBoxCount     > 0 ? totalConfSum / totalBoxCount    : 0;
         const frameId = path.parse(originalFilename).name;
-        await appendFrameMetrics(frameId, "inpainted", inpaintedFrameAP, inpaintedFramePrecision, inpaintedFrameRecall, inpaintedFrameF1, inpaintedFrameTp, inpaintedFrameFp, inpaintedFrameFn).catch(() => {});
+        await appendFrameMetrics(frameId, "inpainted", inpaintedFrameAP, inpaintedFramePrecision, inpaintedFrameRecall, inpaintedFrameF1, inpaintedFrameTp, inpaintedFrameFp, inpaintedFrameFn, totalIouSum, totalTpMatchCount, totalConfSum, totalBoxCount).catch(() => {});
       }
     }
 
@@ -245,6 +272,8 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       frameTp,
       frameFp,
       frameFn,
+      frameMeanIoU,
+      frameMeanConfidence,
       inpaintedFrameAP,
       inpaintedFramePrecision,
       inpaintedFrameRecall,
@@ -252,6 +281,8 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
       inpaintedFrameTp,
       inpaintedFrameFp,
       inpaintedFrameFn,
+      inpaintedFrameMeanIoU,
+      inpaintedFrameMeanConfidence,
     };
 
     const updatedJob = await readJob(jobId);
