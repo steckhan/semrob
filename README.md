@@ -8,7 +8,7 @@ SemProbe is a local tool for systematically stress-testing object detectors agai
 
 The workflow: upload a deployment image, draw or auto-generate a mask over the region of interest, apply a controlled inpainting modification driven by an ODD factor catalog (e.g. *"cut-resistant work glove"*, *"heavy sawdust"*, *"specular glare"*), and immediately compare YOLO detection confidence and bounding boxes before and after. Every probe is logged with its factor, level, prompt, and confidence delta — exportable as CSV/JSON aligned with ISO/IEC TR 24029-1 and EU AI Act documentation requirements.
 
-Inpainting runs entirely locally on consumer GPUs (~13 GB VRAM) using [FLUX.2-klein](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B), preserving data sovereignty for safety-critical industrial imagery.
+Inpainting runs entirely locally on consumer GPUs using [FLUX.2-klein](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) (4B, ~13 GB VRAM) or the larger [FLUX.2-klein 9B fp8](https://huggingface.co/black-forest-labs/FLUX.2-klein-9B) (~18 GB VRAM), preserving data sovereignty for safety-critical industrial imagery.
 
 **Key capabilities:**
 
@@ -33,8 +33,10 @@ Download and place these into your ComfyUI `models/` subdirectories:
 
 | Role | Model | Download |
 |---|---|---|
-| Diffusion model | FLUX.2-klein 4B | [black-forest-labs/FLUX.2-klein-4B](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) |
-| Text encoder | Qwen3 4B (split files) | [Comfy-Org · text\_encoders](https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/tree/main/split_files/text_encoders) |
+| Diffusion model (4B, ~13 GB VRAM) | FLUX.2-klein 4B | [black-forest-labs/FLUX.2-klein-4B](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) |
+| Diffusion model (9B fp8, ~18 GB VRAM) | FLUX.2-klein 9B fp8 | [black-forest-labs/FLUX.2-klein-9B](https://huggingface.co/black-forest-labs/FLUX.2-klein-9B) |
+| Text encoder for 4B | Qwen3 4B (split files) | [Comfy-Org · text\_encoders](https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/tree/main/split_files/text_encoders) |
+| Text encoder for 9B | Qwen3 8B fp8mixed | [Comfy-Org · text\_encoders 9B](https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-9b/tree/main/split_files/text_encoders) |
 | VAE | FLUX.2 VAE (split files) | [Comfy-Org · vae](https://huggingface.co/Comfy-Org/flux2-dev/tree/main/split_files/vae) |
 | Segmentation | SAM2 Hiera Base Plus | [facebook/sam2-hiera-base-plus](https://huggingface.co/facebook/sam2-hiera-base-plus) |
 | Object detection | GroundingDINO SwinB | [IDEA-Research/grounding-dino-base](https://huggingface.co/IDEA-Research/grounding-dino-base) |
@@ -73,6 +75,7 @@ Edit `.env.local` and set the paths for your machine — at minimum:
 | `COMFYUI_INPUT_DIR_WINDOWS` | ComfyUI input folder, e.g. `C:\Users\YOU\ComfyUI\input` |
 | `YOLO_PYTHON` | Python executable with ultralytics installed |
 | `YOLO_MODEL_PATH` | Path to your YOLO `.pt` weights file |
+| `GT_DIR` | *(optional)* Path to a folder of YOLO-format `.txt` ground-truth label files. When set and a matching label file exists for an uploaded image, per-frame AP/precision/recall/F1 and accumulated batch metrics are computed automatically. |
 
 ### 3. Set up YOLO Python environment
 
@@ -134,3 +137,4 @@ After each job completes, YOLO hand detection runs automatically and annotated b
 - Each submitted job stores its own `comfyBaseUrl` snapshot, so changing the URL later does not affect already queued/running jobs.
 - The app auto-detects `LoadImage`, `LoadImageMask`, and `KSampler` nodes if no mapping exists.
 - YOLO runs as a background subprocess after the main inpainting job completes; a failed YOLO run will not affect the inpainting result.
+- **Model selection** — the **ComfyUI Connection** card exposes a segmented control to switch between *Flux.2 Klein 4B* and *Flux.2 Klein 9B (fp8)*. Selecting the 9B model automatically patches both the UNETLoader (`flux-2-klein-9b-fp8.safetensors`) and the CLIPLoader (`qwen_3_8b_fp8mixed.safetensors`) in the workflow at submission time — no manual workflow editing required. The choice is persisted in `localStorage`.
