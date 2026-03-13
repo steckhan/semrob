@@ -19,7 +19,11 @@
       "denoiseNodeId": "__none__",
       "positivePromptNodeId": "149",
       "automaskSwitchNodeId": "209",
-      "sam2PromptNodeId": "201"
+      "sam2PromptNodeId": "201",
+      "unetNameNodeId": "111",
+      "unetNameInputKey": "unet_name",
+      "clipNameNodeId": "112",
+      "clipNameInputKey": "clip_name"
     }
   }
 ]
