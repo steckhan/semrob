@@ -1,6 +1,6 @@
 # SemProbe — Semantic Robustness Probing via Controlled Inpainting
 
-> Code repository for the **ECML 2025 Demo Track** paper
+> Code repository for the **ECML 2026 Demo Track** paper
 > *"Semantic Robustness Probing via Controlled Inpainting: An Interactive Tool for Safety-Critical Object Detection"*
 > Nico Steckhan, Krutarth Prajapati, Weija Shao, Silvia Vock · BAuA, Germany
 
