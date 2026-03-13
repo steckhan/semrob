@@ -220,5 +220,28 @@ export function patchWorkflow({
     }
   }
 
+  // Model selection: patch UNETLoader + CLIPLoader (always applied, independent of useWorkflowDefaults)
+  // Maps each UNET to its required text encoder; falls back to the 4B encoder for unknown models.
+  const UNET_TO_CLIP: Record<string, string> = {
+    "flux-2-klein-4b.safetensors":      "qwen_3_4b.safetensors",
+    "flux-2-klein-9b-fp8.safetensors":  "qwen_3_8b_fp8mixed.safetensors",
+  };
+
+  if (resolvedTargets.unetNameNodeId && params.unetName) {
+    const unetNode = patched[resolvedTargets.unetNameNodeId];
+    if (unetNode?.inputs) {
+      unetNode.inputs[resolvedTargets.unetNameInputKey ?? "unet_name"] = params.unetName;
+    }
+
+    // Automatically switch the CLIP to the matching text encoder
+    const requiredClip = UNET_TO_CLIP[params.unetName];
+    if (requiredClip && resolvedTargets.clipNameNodeId) {
+      const clipNode = patched[resolvedTargets.clipNameNodeId];
+      if (clipNode?.inputs) {
+        clipNode.inputs[resolvedTargets.clipNameInputKey ?? "clip_name"] = requiredClip;
+      }
+    }
+  }
+
   return patched;
 }

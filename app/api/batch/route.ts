@@ -26,6 +26,7 @@ const DEFAULT_PARAMS: InpaintParams = {
   automaskMode: "manual",
   sam2Prompt: "hand",
   sam2Threshold: 0.39,
+  unetName: "flux-2-klein-4b.safetensors",
 };
 
 /** POST /api/batch — create a new batch record, returns batchId */
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
     automaskMode: String(formData.get("automaskMode") ?? "manual") === "auto" ? "auto" : "manual",
     sam2Prompt: String(formData.get("sam2Prompt") ?? DEFAULT_PARAMS.sam2Prompt),
     sam2Threshold: Number(formData.get("sam2Threshold") ?? DEFAULT_PARAMS.sam2Threshold),
+    unetName: String(formData.get("unetName") ?? DEFAULT_PARAMS.unetName),
   };
 
   const batchId = randomUUID();

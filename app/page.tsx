@@ -136,6 +136,7 @@ const COMFYUI_LOCAL_STORAGE_KEY = "comfyBaseUrl";
 const INPAINT_MODE_KEY = "inpaintMode";
 const OPENAI_API_KEY_KEY = "openaiApiKey";
 const OPENAI_MODEL_KEY = "openaiModel";
+const FLUX_MODEL_KEY = "fluxModel";
 const ODD_DOMAIN_KEY = "oddDomain";
 const ODD_CATALOG_CACHE_KEY = "oddCatalogCache";
 const DEFAULT_COMFYUI_BASE_URL = "http://localhost:8188";
@@ -146,6 +147,12 @@ const OPENAI_MODELS = [
   { value: "gpt-image-1.5", label: "gpt-image-1.5" },
 ] as const;
 type OpenAIModelValue = (typeof OPENAI_MODELS)[number]["value"];
+
+const FLUX_MODELS = [
+  { value: "flux-2-klein-4b.safetensors", label: "Flux.2 Klein 4B" },
+  { value: "flux-2-klein-9b-fp8.safetensors", label: "Flux.2 Klein 9B (fp8)" },
+] as const;
+type FluxModelValue = (typeof FLUX_MODELS)[number]["value"];
 
 const DEFAULT_PARAMS = {
   seed: 42,
@@ -163,6 +170,7 @@ const DEFAULT_PARAMS = {
   automaskMode: "manual" as "manual" | "auto",
   sam2Prompt: "hand",
   sam2Threshold: 0.39,
+  unetName: "flux-2-klein-4b.safetensors" as FluxModelValue,
 };
 
 const SLIDER_NUM_STYLE: React.CSSProperties = {
@@ -779,6 +787,11 @@ export default function HomePage() {
       setOpenaiModel(storedModel);
     }
 
+    const storedFluxModel = window.localStorage.getItem(FLUX_MODEL_KEY) as FluxModelValue | null;
+    if (storedFluxModel && FLUX_MODELS.some((m) => m.value === storedFluxModel)) {
+      setParams((p) => ({ ...p, unetName: storedFluxModel }));
+    }
+
     const storedDomain = window.localStorage.getItem(ODD_DOMAIN_KEY);
     if (storedDomain) {
       setOddDomain(storedDomain);
@@ -888,6 +901,7 @@ export default function HomePage() {
       window.localStorage.setItem(INPAINT_MODE_KEY, inpaintMode);
       if (inpaintMode === "local") {
         window.localStorage.setItem(COMFYUI_LOCAL_STORAGE_KEY, comfyBaseUrl.trim());
+        if (params.unetName) window.localStorage.setItem(FLUX_MODEL_KEY, params.unetName);
       } else {
         window.localStorage.setItem(OPENAI_API_KEY_KEY, openaiApiKey.trim());
         window.localStorage.setItem(OPENAI_MODEL_KEY, openaiModel);
@@ -1353,6 +1367,20 @@ export default function HomePage() {
                     </div>
                   </div>
                   {comfyTestMessage && <p className="hint" style={{ color: "var(--green)" }}>{comfyTestMessage}</p>}
+                  <div>
+                    <label>Model</label>
+                    <div className="seg-control">
+                      {FLUX_MODELS.map((m) => (
+                        <button
+                          key={m.value}
+                          className={`seg-btn${params.unetName === m.value ? " active" : ""}`}
+                          onClick={() => setParams((p) => ({ ...p, unetName: m.value }))}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

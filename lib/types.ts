@@ -16,6 +16,7 @@ export type InpaintParams = {
   automaskMode?: "manual" | "auto";
   sam2Prompt?: string;
   sam2Threshold?: number;
+  unetName?: string;
 };
 
 export type WorkflowDefinition = {
@@ -47,6 +48,10 @@ export type WorkflowPatchTargets = {
   denoiseInputKey?: string;
   automaskSwitchNodeId?: string;
   sam2PromptNodeId?: string;
+  unetNameNodeId?: string;
+  unetNameInputKey?: string;
+  clipNameNodeId?: string;
+  clipNameInputKey?: string;
 };
 
 export type WorkflowMapping = {
