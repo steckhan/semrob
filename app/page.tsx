@@ -9,9 +9,9 @@ import { buildPromptFromSelections } from "@/lib/oddCatalog";
 import BatchPanel, { type BatchImage } from "./components/BatchPanel";
 import ImageCompare from "./components/ImageCompare";
 import MaskCanvas from "./components/MaskCanvas";
-import OddDomainCard from "./components/OddDomainCard";
 import YoloCompareModal from "./components/YoloCompareModal";
 import OddFactorCard from "./components/OddFactorCard";
+import PcaPlot, { type PcaPoint } from "./components/PcaPlot";
 
 type JobOutput = {
   workflowName: string;
@@ -91,6 +91,7 @@ type JobRecord = {
   error?: string;
   outputs: JobOutput[];
   yoloResults?: YoloJobResults;
+  params?: { promptList?: string[]; positivePrompt?: string };
 };
 
 type BatchSubJobRecord = {
@@ -264,6 +265,23 @@ function Hint({ tip }: { tip: string }) {
   );
 }
 
+/** Derive per-variant metrics purely from stored YoloImageResult data. */
+function computeVariantMetrics(result: YoloImageResult) {
+  const { boxes, gtBoxes, iouMatches } = result;
+  if (!gtBoxes || gtBoxes.length === 0) return null;
+  const tpMatches = (iouMatches ?? []).filter((m) => m.gtIdx !== null);
+  const tp = tpMatches.length;
+  const fp = boxes.length - tp;
+  const fn = gtBoxes.length - tp;
+  const precision = boxes.length > 0 ? tp / boxes.length : gtBoxes.length === 0 ? 1 : 0;
+  const recall    = gtBoxes.length > 0 ? tp / gtBoxes.length : boxes.length === 0 ? 1 : 0;
+  const f1        = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+  const fnr       = 1 - recall;
+  const meanIoU   = tp > 0 ? tpMatches.reduce((s, m) => s + m.iou, 0) / tp : 0;
+  const meanConf  = boxes.length > 0 ? boxes.reduce((s, b) => s + b.confidence, 0) / boxes.length : 0;
+  return { tp, fp, fn, precision, recall, f1, fnr, meanIoU, meanConf };
+}
+
 function JobResultSection({
   job,
   imagePreviewUrl,
@@ -331,13 +349,33 @@ function JobResultSection({
                 const masks = outputs.filter(o => o.filename?.startsWith("mask_"));
                 return results.map((output, i) => {
                   const maskOutput = masks[i];
+                  const sweepPrompt = job.params?.promptList?.[output.variationIndex];
+                  const caption = sweepPrompt ?? `${workflowName} · variation ${output.variationIndex + 1}`;
                   return (
                 <div
                   key={`${workflowName}-${output.variationIndex}`}
                   className="gallery-item"
-                  onClick={() => onLightbox(output.url, `${workflowName} · variation ${output.variationIndex + 1}`)}
+                  onClick={() => onLightbox(output.url, caption)}
                 >
-                  <img src={output.url} alt={`${workflowName} variation ${output.variationIndex}`} />
+                  <img src={output.url} alt={caption} />
+                  {sweepPrompt && (
+                    <div style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      background: "rgba(0,0,0,0.65)",
+                      color: "#fff",
+                      fontSize: "0.62rem",
+                      padding: "3px 5px",
+                      lineHeight: 1.3,
+                      pointerEvents: "none",
+                      borderBottomLeftRadius: 4,
+                      borderBottomRightRadius: 4,
+                    }}>
+                      {sweepPrompt}
+                    </div>
+                  )}
                   {maskOutput && (
                     <img
                       src={maskOutput.url}
@@ -391,10 +429,15 @@ function JobResultSection({
               // Derived FNR for single mode
               const inpFNR = yr.inpaintedFrameRecall !== undefined ? 1 - yr.inpaintedFrameRecall : undefined;
               const origFNR = yr.frameRecall !== undefined ? 1 - yr.frameRecall : undefined;
+              const outputCount = Object.keys(yr.outputs ?? {}).length;
+              const isSweep = (job.params?.promptList?.length ?? 0) > 1;
+              const globalLabel = isSweep
+                ? `Avg across ${outputCount} variant${outputCount !== 1 ? "s" : ""} vs GT`
+                : "Inpainted vs GT";
               return (
                 <>
                   <div style={{ marginBottom: 8, padding: "6px 8px", background: "var(--surface2)", borderRadius: 4 }}>
-                    <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--green)", marginBottom: 4 }}>Inpainted vs GT</div>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--green)", marginBottom: 4 }}>{globalLabel}</div>
                     {(yr.inpaintedFrameTp !== undefined || yr.inpaintedFrameFp !== undefined || yr.inpaintedFrameFn !== undefined) && (
                       <div style={{ display: "flex", gap: 8, fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 4 }}>
                         {yr.inpaintedFrameTp !== undefined && <span>TP <strong style={{ color: "var(--green)" }}>{Math.round(yr.inpaintedFrameTp)}</strong></span>}
@@ -529,16 +572,98 @@ function JobResultSection({
                 </div>
                 {job.yoloResults.outputs && Object.entries(job.yoloResults.outputs).map(([key, result]) => {
                   const count = result.boxes.length;
+                  const variationIndex = parseInt(key.split("_").pop() ?? "0", 10);
+                  const sweepPrompt = job.params?.promptList?.[variationIndex];
+                  const label = sweepPrompt ?? key;
+                  const vm = computeVariantMetrics(result);
+                  const origResult = job.yoloResults?.original;
+                  const origVm = origResult ? computeVariantMetrics(origResult) : null;
+                  const dc = (d: number) => d > 0.005 ? "#06b6d4" : d < -0.005 ? "#f97316" : "var(--text-muted)";
+                  const fd = (d: number) => (d >= 0 ? "+" : "") + d.toFixed(2);
+                  const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const f1Color   = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
+                  const iouColor  = (v: number) => v >= 0.75 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const confColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
                   return (
                     <div key={key} style={{ marginTop: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: "0.62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-dim)" }}>{key}</span>
-                        <span className={`detection-badge${count === 0 ? " clear" : ""}`}>{count} detection{count !== 1 ? "s" : ""}</span>
+                      {/* Header: prompt label + detection badge */}
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--text-dim)", lineHeight: 1.3, flex: 1 }}>
+                          {sweepPrompt
+                            ? <><span style={{ color: "var(--accent-light)" }}>{sweepPrompt}</span></>
+                            : <span style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>{key}</span>
+                          }
+                        </span>
+                        <span className={`detection-badge${count === 0 ? " clear" : ""}`} style={{ flexShrink: 0 }}>
+                          {count} det.
+                        </span>
                       </div>
+
+                      {/* Per-variant metrics (only when GT is available) */}
+                      {vm && (
+                        <div style={{ padding: "5px 7px", background: "var(--surface2)", borderRadius: 4, marginBottom: 6 }}>
+                          <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", color: "var(--text-dim)", marginBottom: 3 }}>
+                            <span>TP <strong style={{ color: "var(--green)" }}>{vm.tp}</strong></span>
+                            <span>FP <strong style={{ color: "#f97316" }}>{vm.fp}</strong></span>
+                            <span>FN <strong style={{ color: "var(--red)" }}>{vm.fn}</strong></span>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: "0.75rem", color: "var(--text-dim)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span>Precision</span>
+                              <span style={{ display: "flex", gap: 4 }}>
+                                <strong style={{ color: precColor(vm.precision) }}>{vm.precision.toFixed(2)}</strong>
+                                {origVm && <span style={{ color: dc(vm.precision - origVm.precision) }}>{fd(vm.precision - origVm.precision)}</span>}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span>Recall</span>
+                              <span style={{ display: "flex", gap: 4 }}>
+                                <strong style={{ color: recColor(vm.recall) }}>{vm.recall.toFixed(2)}</strong>
+                                {origVm && <span style={{ color: dc(vm.recall - origVm.recall) }}>{fd(vm.recall - origVm.recall)}</span>}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span>F1</span>
+                              <span style={{ display: "flex", gap: 4 }}>
+                                <strong style={{ color: f1Color(vm.f1) }}>{vm.f1.toFixed(2)}</strong>
+                                {origVm && <span style={{ color: dc(vm.f1 - origVm.f1) }}>{fd(vm.f1 - origVm.f1)}</span>}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span>FNR</span>
+                              <span style={{ display: "flex", gap: 4 }}>
+                                <strong style={{ color: fnrColor(vm.fnr) }}>{vm.fnr.toFixed(2)}</strong>
+                                {origVm && <span style={{ color: dc(vm.fnr - origVm.fnr) }}>{fd(vm.fnr - origVm.fnr)}</span>}
+                              </span>
+                            </div>
+                            {vm.tp > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span>Mean IoU</span>
+                                <span style={{ display: "flex", gap: 4 }}>
+                                  <strong style={{ color: iouColor(vm.meanIoU) }}>{vm.meanIoU.toFixed(2)}</strong>
+                                  {origVm && origVm.tp > 0 && <span style={{ color: dc(vm.meanIoU - origVm.meanIoU) }}>{fd(vm.meanIoU - origVm.meanIoU)}</span>}
+                                </span>
+                              </div>
+                            )}
+                            {count > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span>Mean Conf.</span>
+                                <span style={{ display: "flex", gap: 4 }}>
+                                  <strong style={{ color: confColor(vm.meanConf) }}>{vm.meanConf.toFixed(2)}</strong>
+                                  {origVm && origVm.meanConf > 0 && <span style={{ color: dc(vm.meanConf - origVm.meanConf) }}>{fd(vm.meanConf - origVm.meanConf)}</span>}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {result.annotatedUrl && (
-                        <div className="gallery-item" onClick={() => onLightbox(result.annotatedUrl, `${key} · YOLO annotated`)}>
-                          <img src={result.annotatedUrl} alt={`${key} YOLO annotated`} />
-                          <button className="gallery-compare-btn" onClick={(e) => { e.stopPropagation(); onYoloCompare(job.yoloResults!.original!, result, key); }}>
+                        <div className="gallery-item" onClick={() => onLightbox(result.annotatedUrl, `${label} · YOLO annotated`)}>
+                          <img src={result.annotatedUrl} alt={`${label} YOLO annotated`} />
+                          <button className="gallery-compare-btn" onClick={(e) => { e.stopPropagation(); onYoloCompare(job.yoloResults!.original!, result, label); }}>
                             ⇄ Compare
                           </button>
                         </div>
@@ -553,6 +678,87 @@ function JobResultSection({
       )}
     </>
   );
+}
+
+type PromptTableRow = {
+  prompt: string;
+  count: number;
+  avgDetections: number;
+  hasGT: boolean;
+  avgPrecision?: number;
+  avgRecall?: number;
+  avgFnr?: number;
+  avgMeanIoU?: number;
+  avgMeanConf: number;
+};
+
+/** Raw per-(image × prompt) measurements for PCA — one point per inpainting. */
+function buildPcaPoints(batchAllJobs: Record<number, JobRecord>): PcaPoint[] {
+  const pts: PcaPoint[] = [];
+  for (const job of Object.values(batchAllJobs)) {
+    if (job.yoloResults?.status !== "completed" || !job.yoloResults.outputs) continue;
+    for (const [key, result] of Object.entries(job.yoloResults.outputs)) {
+      const vi = parseInt(key.split("_").pop() ?? "0", 10);
+      const prompt = job.params?.promptList?.[vi] ?? key;
+      const vm = computeVariantMetrics(result);
+      pts.push({
+        prompt,
+        detections: result.boxes.length,
+        meanConf: result.boxes.length > 0
+          ? result.boxes.reduce((s, b) => s + b.confidence, 0) / result.boxes.length
+          : 0,
+        precision: vm?.precision,
+        recall:    vm?.recall,
+        fnr:       vm?.fnr,
+        meanIoU:   vm?.meanIoU,
+      });
+    }
+  }
+  return pts;
+}
+
+function buildPromptTable(batchAllJobs: Record<number, JobRecord>): PromptTableRow[] {
+  const buckets: Record<string, {
+    detCounts: number[];
+    confSums: number[];
+    vms: ReturnType<typeof computeVariantMetrics>[];
+    hasGT: boolean;
+  }> = {};
+
+  for (const job of Object.values(batchAllJobs)) {
+    if (job.yoloResults?.status !== "completed" || !job.yoloResults.outputs) continue;
+    for (const [key, result] of Object.entries(job.yoloResults.outputs)) {
+      const vi = parseInt(key.split("_").pop() ?? "0", 10);
+      const prompt = job.params?.promptList?.[vi] ?? key;
+      if (!buckets[prompt]) buckets[prompt] = { detCounts: [], confSums: [], vms: [], hasGT: false };
+      buckets[prompt].detCounts.push(result.boxes.length);
+      buckets[prompt].confSums.push(
+        result.boxes.length > 0
+          ? result.boxes.reduce((s, b) => s + b.confidence, 0) / result.boxes.length
+          : 0,
+      );
+      const vm = computeVariantMetrics(result);
+      buckets[prompt].vms.push(vm);
+      if (vm) buckets[prompt].hasGT = true;
+    }
+  }
+
+  const mean = (arr: number[]) => arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
+
+  return Object.entries(buckets).map(([prompt, { detCounts, confSums, vms, hasGT }]) => {
+    const validVms = vms.filter((v): v is NonNullable<typeof v> => v !== null);
+    return {
+      prompt,
+      count: detCounts.length,
+      avgDetections: mean(detCounts),
+      hasGT,
+      avgPrecision: hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.precision)) : undefined,
+      avgRecall:    hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.recall))    : undefined,
+      avgFnr:       hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.fnr))       : undefined,
+      avgMeanIoU:   hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.meanIoU))  : undefined,
+      avgMeanConf:  mean(confSums),
+    };
+  });
 }
 
 function BatchResultCard({
@@ -643,14 +849,36 @@ function BatchResultCard({
                       {yolo.original.boxes.length} det
                     </span>
                   </div>
-                  {yolo.outputs && Object.entries(yolo.outputs).map(([key, result]) => (
-                    <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                      <span style={{ fontSize: "0.62rem", color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 80 }} title={key}>{key}</span>
-                      <span className={`detection-badge${result.boxes.length === 0 ? " clear" : ""}`} style={{ fontSize: "0.6rem" }}>
-                        {result.boxes.length} det
-                      </span>
-                    </div>
-                  ))}
+                  {yolo.outputs && Object.entries(yolo.outputs).map(([key, result]) => {
+                    const vi = parseInt(key.split("_").pop() ?? "0", 10);
+                    const sp = job.params?.promptList?.[vi];
+                    return (
+                      <div key={key} style={{ marginBottom: 3 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.62rem", color: sp ? "var(--accent-light)" : "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 100 }} title={sp ?? key}>
+                            {sp ?? key}
+                          </span>
+                          <span className={`detection-badge${result.boxes.length === 0 ? " clear" : ""}`} style={{ fontSize: "0.6rem" }}>
+                            {result.boxes.length} det
+                          </span>
+                        </div>
+                        {(() => {
+                          const vm = computeVariantMetrics(result);
+                          if (!vm) return null;
+                          const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                          const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                          const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
+                          return (
+                            <div style={{ display: "flex", gap: 8, fontSize: "0.6rem", color: "var(--text-dim)", marginTop: 1, paddingLeft: 2 }}>
+                              <span>P <strong style={{ color: precColor(vm.precision) }}>{vm.precision.toFixed(2)}</strong></span>
+                              <span>R <strong style={{ color: recColor(vm.recall) }}>{vm.recall.toFixed(2)}</strong></span>
+                              <span>FNR <strong style={{ color: fnrColor(vm.fnr) }}>{vm.fnr.toFixed(2)}</strong></span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
                   <button
                     className="btn btn-outline btn-sm"
                     style={{ marginTop: 4, fontSize: "0.6rem", padding: "2px 6px" }}
@@ -677,17 +905,56 @@ function BatchResultCard({
                   </div>
                 </div>
               )}
-              {yolo.outputs && Object.entries(yolo.outputs).map(([key, result]) => result.annotatedUrl && (
-                <div key={key} style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: "0.6rem", color: "var(--text-dim)", marginBottom: 3 }}>{key}</div>
-                  <div className="gallery-item" onClick={() => onLightbox(result.annotatedUrl, `${key} · ${imageName}`)}>
-                    <img src={result.annotatedUrl} alt={key} />
-                    <button className="gallery-compare-btn" onClick={(e) => { e.stopPropagation(); onYoloCompare(yolo!.original!, result, key); }}>
-                      ⇄ Compare
-                    </button>
+              {yolo.outputs && Object.entries(yolo.outputs).map(([key, result]) => {
+                if (!result.annotatedUrl) return null;
+                const vi = parseInt(key.split("_").pop() ?? "0", 10);
+                const sp = job.params?.promptList?.[vi];
+                const label = sp ?? key;
+                const vm = computeVariantMetrics(result);
+                const origVm = yolo.original ? computeVariantMetrics(yolo.original) : null;
+                const dc = (d: number) => d > 0.005 ? "#06b6d4" : d < -0.005 ? "#f97316" : "var(--text-muted)";
+                const fd = (d: number) => (d >= 0 ? "+" : "") + d.toFixed(2);
+                const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                const f1Color   = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
+                return (
+                  <div key={key} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: "0.65rem", color: sp ? "var(--accent-light)" : "var(--text-dim)", marginBottom: 3, fontWeight: 600 }}>{label}</div>
+                    {vm && (
+                      <div style={{ padding: "4px 6px", background: "var(--surface2)", borderRadius: 4, marginBottom: 4 }}>
+                        <div style={{ display: "flex", gap: 8, fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: 2 }}>
+                          <span>TP <strong style={{ color: "var(--green)" }}>{vm.tp}</strong></span>
+                          <span>FP <strong style={{ color: "#f97316" }}>{vm.fp}</strong></span>
+                          <span>FN <strong style={{ color: "var(--red)" }}>{vm.fn}</strong></span>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: "0.68rem", color: "var(--text-dim)" }}>
+                          {[
+                            ["Precision", vm.precision, origVm?.precision, precColor],
+                            ["Recall",    vm.recall,    origVm?.recall,    recColor],
+                            ["F1",        vm.f1,        origVm?.f1,        f1Color],
+                            ["FNR",       vm.fnr,       origVm?.fnr,       fnrColor],
+                          ].map(([lbl, val, ref, colFn]) => (
+                            <div key={lbl as string} style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span>{lbl as string}</span>
+                              <span style={{ display: "flex", gap: 3 }}>
+                                <strong style={{ color: (colFn as (v: number) => string)(val as number) }}>{(val as number).toFixed(2)}</strong>
+                                {ref !== undefined && <span style={{ color: dc((val as number) - (ref as number)) }}>{fd((val as number) - (ref as number))}</span>}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="gallery-item" onClick={() => onLightbox(result.annotatedUrl, `${label} · ${imageName}`)}>
+                      <img src={result.annotatedUrl} alt={label} />
+                      <button className="gallery-compare-btn" onClick={(e) => { e.stopPropagation(); onYoloCompare(yolo!.original!, result, label); }}>
+                        ⇄ Compare
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -730,6 +997,18 @@ export default function HomePage() {
   const [inpaintMode, setInpaintMode] = useState<"local" | "api">("local");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiModel, setOpenaiModel] = useState<OpenAIModelValue>("gpt-image-1");
+
+  // ── Prompt sweep ─────────────────────────────────────────────────────────
+  const [promptListText, setPromptListText] = useState("");
+  const [pcaOpen, setPcaOpen] = useState(false);
+  const [sweepAutoN, setSweepAutoN] = useState(4);
+  const [isSweepGenerating, setIsSweepGenerating] = useState(false);
+  const [sweepGenError, setSweepGenError] = useState<string | null>(null);
+
+  // ── SAM2 auto-suggest ─────────────────────────────────────────────────────
+  const [isSam2Suggesting, setIsSam2Suggesting] = useState(false);
+  const [sam2SuggestError, setSam2SuggestError] = useState<string | null>(null);
+  const promptList = promptListText.split("\n").map((s) => s.trim()).filter(Boolean);
 
   // ── Accumulated metrics ───────────────────────────────────────────────────
   const [accMetrics, setAccMetrics] = useState<AccumulatedMetrics | null>(null);
@@ -868,19 +1147,199 @@ export default function HomePage() {
   const displayJob = appMode === "single" ? job : null;
 
   // ── Single job submit ─────────────────────────────────────────────────────
-  const submitJob = async () => {
-    if (!imageFile || !maskDataUrl) return;
+  const generateSweepPrompts = async () => {
+    if (!oddDomain.trim()) return;
+    setIsSweepGenerating(true);
+    setSweepGenError(null);
+    try {
+      const res = await fetch("/api/sweep/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: oddDomain.trim(),
+          n: sweepAutoN,
+          apiKey: openaiApiKey.trim() || undefined,
+          catalog: oddCatalog ?? undefined,
+        }),
+      });
+      const data = (await res.json()) as { prompts?: string[]; error?: string };
+      if (!res.ok || !data.prompts) {
+        setSweepGenError(data.error ?? "Generation failed.");
+      } else {
+        setPromptListText(data.prompts.join("\n"));
+      }
+    } catch (e) {
+      setSweepGenError((e as Error).message);
+    } finally {
+      setIsSweepGenerating(false);
+    }
+  };
+
+  const suggestSam2Target = async () => {
+    if (!oddDomain.trim()) return;
+    setIsSam2Suggesting(true);
+    setSam2SuggestError(null);
+    try {
+      const res = await fetch("/api/sam2/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: oddDomain.trim(),
+          apiKey: openaiApiKey.trim() || undefined,
+        }),
+      });
+      const data = (await res.json()) as { target?: string; error?: string };
+      if (!res.ok || !data.target) {
+        setSam2SuggestError(data.error ?? "Suggestion failed.");
+      } else {
+        setParams((p) => ({ ...p, sam2Prompt: data.target!, automaskMode: "auto" }));
+      }
+    } catch (e) {
+      setSam2SuggestError((e as Error).message);
+    } finally {
+      setIsSam2Suggesting(false);
+    }
+  };
+
+  // ── Combined auto-setup: ODD factors + SAM2 target in parallel ──────────
+  const [isAutoRunning, setIsAutoRunning] = useState(false);
+
+  /**
+   * Auto-setup: extract ODD factors + suggest SAM2 target in parallel via direct
+   * API calls, build the prompt synchronously from the returned catalog, then
+   * launch inpainting/batch with the result injected as paramsOverride.
+   * (Bypasses the React useEffect timing gap between setOddCatalog → setParams.)
+   */
+  const runAutoSetup = async (mode: "single" | "batch") => {
+    const domain = oddDomain.trim();
+    const apiKey = openaiApiKey.trim() || undefined;
+    // Always activate SAM2 auto-mask mode when Auto Run is clicked
+    const paramsOverride: Partial<typeof params> = { automaskMode: "auto" };
+    setParams((p) => ({ ...p, automaskMode: "auto" }));
+    let generatedSweepPrompts: string[] = [];
+
+    if (domain) {
+      setIsAutoRunning(true);
+
+      const [catalogResult, sam2Result] = await Promise.allSettled([
+        // ── ODD factors ──
+        (async () => {
+          setIsGeneratingOdd(true);
+          setOddError(null);
+          try {
+            const res = await fetch("/api/odd/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ domain, apiKey }),
+            });
+            const data = (await res.json()) as { error?: string } & Partial<OddCatalog>;
+            if (!res.ok || !data.dimensions) throw new Error(data.error ?? "ODD generation failed");
+            const catalog = data as OddCatalog;
+            // Persist to state + cache
+            setOddCatalog(catalog);
+            setSelectedFactorIds(new Set());
+            setIsCustomPrompt(false);
+            try {
+              const cache = JSON.parse(window.localStorage.getItem(ODD_CATALOG_CACHE_KEY) ?? "{}") as Record<string, OddCatalog>;
+              cache[domain] = catalog;
+              window.localStorage.setItem(ODD_CATALOG_CACHE_KEY, JSON.stringify(cache));
+              window.localStorage.setItem(ODD_DOMAIN_KEY, domain);
+            } catch { /* ignore */ }
+            return catalog;
+          } catch (e) {
+            setOddError(e instanceof Error ? e.message : "ODD generation failed");
+            return null;
+          } finally {
+            setIsGeneratingOdd(false);
+          }
+        })(),
+
+        // ── SAM2 target ──
+        (async () => {
+          setIsSam2Suggesting(true);
+          setSam2SuggestError(null);
+          try {
+            const res = await fetch("/api/sam2/suggest", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ domain, apiKey }),
+            });
+            const data = (await res.json()) as { target?: string; error?: string };
+            if (!res.ok || !data.target) throw new Error(data.error ?? "SAM2 suggestion failed");
+            setParams((p) => ({ ...p, sam2Prompt: data.target!, automaskMode: "auto" }));
+            return data.target!;
+          } catch (e) {
+            setSam2SuggestError(e instanceof Error ? e.message : "SAM2 suggestion failed");
+            return null;
+          } finally {
+            setIsSam2Suggesting(false);
+          }
+        })(),
+      ]);
+
+      // Build params synchronously from API results (avoids stale-closure issue)
+
+      if (catalogResult.status === "fulfilled" && catalogResult.value) {
+        const catalog = catalogResult.value;
+        const singlePrompt = buildPromptFromSelections(catalog, new Set());
+        if (singlePrompt) paramsOverride.positivePrompt = singlePrompt;
+
+        // Generate sweep prompts from the catalog and show them in the textarea
+        try {
+          setIsSweepGenerating(true);
+          const res = await fetch("/api/sweep/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain, apiKey, catalog, n: sweepAutoN }),
+          });
+          const data = (await res.json()) as { prompts?: string[]; error?: string };
+          if (res.ok && data.prompts?.length) {
+            generatedSweepPrompts = data.prompts;
+            setPromptListText(data.prompts.join("\n")); // show in the textarea
+          }
+        } catch { /* non-fatal */ } finally {
+          setIsSweepGenerating(false);
+        }
+      }
+
+      if (sam2Result.status === "fulfilled" && sam2Result.value) {
+        paramsOverride.sam2Prompt = sam2Result.value;
+        paramsOverride.automaskMode = "auto";
+      }
+
+      setIsAutoRunning(false);
+    }
+
+    if (mode === "single") await submitJob(paramsOverride, generatedSweepPrompts);
+    else await submitBatch(paramsOverride, generatedSweepPrompts);
+  };
+
+  const submitJob = async (paramsOverride?: Partial<typeof params>, promptListOverride?: string[]) => {
+    if (!imageFile) return;
+    const effectiveParams = paramsOverride ? { ...params, ...paramsOverride } : params;
+    const isAutoMask = effectiveParams.automaskMode === "auto";
+    if (!maskDataUrl && !isAutoMask) return; // need a drawn mask unless SAM2 will generate one
     setIsSubmitting(true);
     setJob(null);
     setComfyTestError(null);
     setComfyTestMessage(null);
 
+    const effectivePromptList = (promptListOverride && promptListOverride.length > 0)
+      ? promptListOverride
+      : promptList;
+
     try {
       const formData = new FormData();
       formData.append("image", imageFile);
-      const maskBlob = dataUrlToBlob(maskDataUrl);
+      // In SAM2 auto mode a drawn mask is optional — send a 1×1 white placeholder so
+      // the server always receives a mask field; ComfyUI ignores it when SAM2 is active.
+      const activeMaskDataUrl = maskDataUrl ?? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=";
+      const maskBlob = dataUrlToBlob(activeMaskDataUrl);
       formData.append("mask", maskBlob, "mask.png");
-      Object.entries(params).forEach(([key, value]) => formData.append(key, String(value)));
+      Object.entries(effectiveParams).forEach(([key, value]) => formData.append(key, String(value)));
+      if (effectivePromptList.length > 0) {
+        formData.append("promptList", JSON.stringify(effectivePromptList));
+      }
       formData.append("inpaintMode", inpaintMode);
       if (inpaintMode === "api") {
         formData.append("openaiApiKey", openaiApiKey.trim());
@@ -914,7 +1373,7 @@ export default function HomePage() {
   };
 
   // ── Batch job submit ──────────────────────────────────────────────────────
-  const submitBatch = async () => {
+  const submitBatch = async (paramsOverride?: Partial<typeof params>, promptListOverride?: string[]) => {
     if (batchImages.length === 0) return;
     setIsBatchRunning(true);
     setBatchStatus(null);
@@ -922,13 +1381,21 @@ export default function HomePage() {
     fetchedBatchIndices.current = new Set();
     setUploadProgress({ uploaded: 0, total: batchImages.length });
 
+    const effectiveParams = paramsOverride ? { ...params, ...paramsOverride } : params;
+    const effectivePromptList = (promptListOverride && promptListOverride.length > 0)
+      ? promptListOverride
+      : promptList;
+
     try {
       // 1. Create batch record
       const batchFormData = new FormData();
       batchFormData.append("inpaintMode", inpaintMode);
       batchFormData.append("comfyBaseUrl", comfyBaseUrl.trim());
       batchFormData.append("openaiModel", openaiModel);
-      Object.entries(params).forEach(([key, value]) => batchFormData.append(key, String(value)));
+      Object.entries(effectiveParams).forEach(([key, value]) => batchFormData.append(key, String(value)));
+      if (effectivePromptList.length > 0) {
+        batchFormData.append("promptList", JSON.stringify(effectivePromptList));
+      }
 
       const createRes = await fetch("/api/batch", { method: "POST", body: batchFormData });
       if (!createRes.ok) {
@@ -1220,7 +1687,12 @@ export default function HomePage() {
     : (isBatchRunning || batchStatus?.status === "running" || batchStatus?.status === "completed");
 
   // Steps: Upload → Mask → Run → Results (single mode only)
-  const stepDone = [!!imageFile, !!maskDataUrl, !!job, job?.status === "completed"];
+  const stepDone = [
+    !!imageFile,
+    !!maskDataUrl || params.automaskMode === "auto", // mask optional when SAM2 auto-mode is active
+    !!job,
+    job?.status === "completed",
+  ];
 
   // ── Job active guards ─────────────────────────────────────────────────────
   const singleJobActive = isSubmitting || (!!job && job.status !== "completed" && job.status !== "failed");
@@ -1262,11 +1734,18 @@ export default function HomePage() {
       {/* ── Top bar ── */}
       <header className="topbar">
         <div className="topbar-logo">
-          <div className="topbar-icon">IS</div>
-          <span>Inpaint Studio</span>
-          <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "0.8rem" }}>
-            ComfyUI &amp; OpenAI
-          </span>
+          <div className="topbar-icon">SP</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <span style={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
+              SemProbe
+              <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6, fontSize: "0.85rem" }}>
+                Semantic Robustness Probing via Inpainting
+              </span>
+            </span>
+            <span style={{ fontWeight: 400, color: "var(--text-dim)", fontSize: "0.65rem", letterSpacing: "0.01em" }}>
+              Interactive Tool for Data Augmentation for Safety-Critical Object Detection
+            </span>
+          </div>
         </div>
         <div className="topbar-meta">
           <span className={`badge ${inpaintMode === "local" ? "badge-local" : "badge-api"}`}>
@@ -1442,7 +1921,8 @@ export default function HomePage() {
                     className="input"
                     type="text"
                     value={params.positivePrompt}
-                    disabled={inpaintMode === "local" && params.useWorkflowDefaults}
+                    disabled={(inpaintMode === "local" && params.useWorkflowDefaults) || promptList.length > 0}
+                    style={promptList.length > 0 ? { opacity: 0.4 } : undefined}
                     onChange={(e) => { setParams((p) => ({ ...p, positivePrompt: e.target.value })); setIsCustomPrompt(true); }}
                   />
                   {isCustomPrompt && oddCatalog && (
@@ -1452,7 +1932,8 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {appMode === "single" && (
+
+                {appMode === "single" && promptList.length === 0 && (
                   <div className="slider-row">
                     <label className="slider-label">Variations <Hint tip="Number of images to generate per run" /></label>
                     <input type="range" min={1} max={inpaintMode === "api" ? 10 : 12} value={params.variationCount}
@@ -1472,6 +1953,11 @@ export default function HomePage() {
                       }}
                     />
                   </div>
+                )}
+                {appMode === "single" && promptList.length > 0 && (
+                  <p className="hint" style={{ color: "var(--accent-light)", marginBottom: 2 }}>
+                    Variations slider replaced by {promptList.length} sweep prompt{promptList.length !== 1 ? "s" : ""}
+                  </p>
                 )}
 
                 {inpaintMode === "local" && (
@@ -1493,13 +1979,28 @@ export default function HomePage() {
                       <>
                         <div>
                           <label>SAM2 Segment Target <Hint tip="Object for AI to auto-detect and mask. e.g. hand, person, bottle, car" /></label>
-                          <input
-                            className="input"
-                            type="text"
-                            placeholder="e.g. hand, person, car"
-                            value={params.sam2Prompt}
-                            onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
-                          />
+                          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                            <input
+                              className="input"
+                              style={{ flex: 1 }}
+                              type="text"
+                              placeholder="e.g. hand, person, car"
+                              value={params.sam2Prompt}
+                              onChange={(e) => setParams((p) => ({ ...p, sam2Prompt: e.target.value }))}
+                            />
+                            <button
+                              className="btn btn-outline btn-sm"
+                              style={{ fontSize: "0.65rem", padding: "4px 8px", whiteSpace: "nowrap" }}
+                              title={oddDomain.trim() ? "Suggest target from ODD domain" : "Fill in ODD Domain first"}
+                              disabled={isSam2Suggesting || !oddDomain.trim()}
+                              onClick={() => void suggestSam2Target()}
+                            >
+                              {isSam2Suggesting ? "⟳" : "✦ Auto"}
+                            </button>
+                          </div>
+                          {sam2SuggestError && (
+                            <p style={{ color: "var(--red)", fontSize: "0.62rem", marginTop: 3 }}>{sam2SuggestError}</p>
+                          )}
                         </div>
                         <div className="slider-row">
                           <label className="slider-label">SAM2 Thr. <Hint tip="Detection confidence threshold. Lower = larger/looser mask, higher = tighter fit" /></label>
@@ -1599,20 +2100,119 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* ── ODD Analysis — only in API mode ── */}
-            {inpaintMode === "api" && (
-              <details className="accordion">
-                <summary>
-                  <span>ODD Analysis (Advanced)</span>
-                  <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>▾</span>
-                </summary>
-                <div className="accordion-body">
-                  <OddDomainCard domain={oddDomain} onDomainChange={setOddDomain} onGenerate={generateOddCatalog} isGenerating={isGeneratingOdd} />
-                  {oddError && <p className="hint" style={{ color: "var(--red)" }}>{oddError}</p>}
-                  <OddFactorCard catalog={oddCatalog} selectedFactorIds={selectedFactorIds} onSelectionChange={setSelectedFactorIds} />
+            {/* ── Prompt Sweep ── */}
+            <div className="card">
+              <div className="card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>
+                  Prompt Sweep
+                  {promptList.length > 0 && (
+                    <span style={{ marginLeft: 8, fontSize: "0.68rem", color: "var(--accent-light)", fontWeight: 600 }}>
+                      {promptList.length} variant{promptList.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </span>
+                {promptList.length > 0 && (
+                  <button
+                    className="odd-clear-btn"
+                    style={{ fontSize: "0.6rem" }}
+                    onClick={() => setPromptListText("")}
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+              </div>
+              <div className="card-body">
+                <textarea
+                  className="input"
+                  rows={4}
+                  style={{ resize: "vertical", fontFamily: "inherit", fontSize: "0.8rem", lineHeight: 1.5 }}
+                  placeholder={"One prompt per line, e.g.:\ncut-resistant work glove, black\nlatex disposable glove, white\nleather safety glove, brown\nmesh anti-vibration glove"}
+                  value={promptListText}
+                  onChange={(e) => setPromptListText(e.target.value)}
+                />
+                <p className="hint">Each line = one inpainted variant. Replaces the single Prompt and Variations count above.</p>
+
+                {/* ── Auto-generate ── */}
+                <div style={{ marginTop: 4, padding: "7px 8px", background: "var(--surface2)", borderRadius: 6, border: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--accent-light)", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    ✦ Auto-generate with AI
+                  </div>
+                  {oddDomain.trim() ? (
+                    <div style={{ fontSize: "0.65rem", color: "var(--text-dim)", marginBottom: 6, padding: "4px 6px", background: "var(--surface1)", borderRadius: 4, border: "1px solid var(--border)" }}>
+                      <span style={{ fontWeight: 600, color: "var(--text)" }}>ODD: </span>
+                      {oddDomain.trim().length > 80 ? oddDomain.trim().slice(0, 80) + "…" : oddDomain.trim()}
+                      {oddCatalog && <span style={{ marginLeft: 6, color: "var(--accent-light)" }}>+ catalog ({oddCatalog.dimensions.length} dims)</span>}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: "0.65rem", color: "var(--red)", marginBottom: 6 }}>
+                      ⚠ Fill in the ODD Domain description first.
+                    </p>
+                  )}
+                  <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                    <div style={{ width: 52 }}>
+                      <label style={{ fontSize: "0.6rem", color: "var(--text-dim)", display: "block", marginBottom: 2 }}>Count</label>
+                      <input
+                        className="input"
+                        style={{ fontSize: "0.75rem", textAlign: "center" }}
+                        type="number"
+                        min={2}
+                        max={20}
+                        value={sweepAutoN}
+                        onChange={(e) => setSweepAutoN(Math.min(20, Math.max(2, Number(e.target.value))))}
+                        disabled={isSweepGenerating}
+                      />
+                    </div>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      style={{ flex: 1, fontSize: "0.7rem", padding: "4px 10px", whiteSpace: "nowrap" }}
+                      disabled={isSweepGenerating || !oddDomain.trim()}
+                      onClick={() => void generateSweepPrompts()}
+                    >
+                      {isSweepGenerating ? "⟳ Generating…" : "✦ Generate prompts"}
+                    </button>
+                  </div>
+                  {sweepGenError && (
+                    <p style={{ color: "var(--red)", fontSize: "0.62rem", marginTop: 4 }}>{sweepGenError}</p>
+                  )}
                 </div>
-              </details>
-            )}
+              </div>
+            </div>
+
+            {/* ── ODD Analysis ── */}
+            <details className="accordion">
+              <summary>
+                <span>ODD Analysis</span>
+                <span style={{ fontSize: "0.6rem", opacity: 0.5 }}>▾</span>
+              </summary>
+              <div className="accordion-body">
+                <div className="card">
+                  <div className="card-header">ODD Domain</div>
+                  <div className="card-body">
+                    <div>
+                      <label>Domain Description</label>
+                      <input
+                        className="input"
+                        type="text"
+                        value={oddDomain}
+                        onChange={(e) => setOddDomain(e.target.value)}
+                        placeholder="e.g. hand detection for dimension saws"
+                        disabled={isGeneratingOdd}
+                      />
+                    </div>
+                    <button
+                      className="btn btn-outline btn-full btn-sm"
+                      onClick={generateOddCatalog}
+                      disabled={!oddDomain.trim() || isGeneratingOdd}
+                    >
+                      {isGeneratingOdd ? "Generating…" : "Generate Factors"}
+                    </button>
+                    {oddError && <p className="hint" style={{ color: "var(--red)" }}>{oddError}</p>}
+                    <p className="hint">Uses an LLM to derive ODD factors for Actors, Activities, Environment, and Sensors.</p>
+                  </div>
+                </div>
+                <OddFactorCard catalog={oddCatalog} selectedFactorIds={selectedFactorIds} onSelectionChange={setSelectedFactorIds} />
+              </div>
+            </details>
 
             {/* ── Batch panel (shown when in batch mode) ── */}
             {appMode === "batch" && (
@@ -1627,6 +2227,8 @@ export default function HomePage() {
                 uploadProgress={uploadProgress}
                 batchStatus={batchStatus}
                 onRun={submitBatch}
+                onAutoRun={() => void runAutoSetup("batch")}
+                isAutoRunning={isAutoRunning}
                 onNew={handleBatchClearAll}
                 singleJobActive={singleJobActive}
                 automaskMode={params.automaskMode}
@@ -1639,19 +2241,45 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* ── Sticky run button (single mode only) ── */}
+          {/* ── Sticky run buttons (single mode only) ── */}
           {appMode === "single" && (
             <div className="sidebar-footer">
               {comfyTestError && <p className="hint" style={{ color: "var(--red)", marginBottom: 8 }}>{comfyTestError}</p>}
               {batchJobActive && <p className="hint" style={{ color: "var(--orange)", marginBottom: 8 }}>Batch job in progress</p>}
+              {/* Auto-run status */}
+              {isAutoRunning && (
+                <div style={{ display: "flex", gap: 12, marginBottom: 6, fontSize: "0.65rem", color: "var(--text-dim)", flexWrap: "wrap" }}>
+                  <span style={{ color: isGeneratingOdd ? "var(--accent-light)" : "var(--green)" }}>
+                    {isGeneratingOdd ? "⟳ ODD…" : "✓ ODD"}
+                  </span>
+                  <span style={{ color: isSam2Suggesting ? "var(--accent-light)" : "var(--green)" }}>
+                    {isSam2Suggesting ? "⟳ SAM2…" : "✓ SAM2"}
+                  </span>
+                  <span style={{ color: isSweepGenerating ? "var(--accent-light)" : "var(--green)" }}>
+                    {isSweepGenerating ? "⟳ Sweep prompts…" : "✓ Sweep prompts"}
+                  </span>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
+                {/* Smart auto button */}
+                <button
+                  className={`btn-run${(isAutoRunning || isSubmitting) ? " running" : ""}`}
+                  style={{ flex: 2, background: "linear-gradient(135deg, var(--accent-dim), var(--accent))" }}
+                  onClick={() => void runAutoSetup("single")}
+                  disabled={!imageFile || isSubmitting || batchJobActive || isAutoRunning}
+                  title="Auto-extract ODD factors & SAM2 target, then run inpainting (SAM2 generates the mask automatically)"
+                >
+                  {isAutoRunning ? "⟳  Setting up…" : isSubmitting ? "⟳  Running…" : "✦ Auto Run →"}
+                </button>
+                {/* Direct run without setup */}
                 <button
                   className={`btn-run${isSubmitting ? " running" : ""}`}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, fontSize: "0.7rem" }}
                   onClick={submitJob}
-                  disabled={!imageFile || !maskDataUrl || isSubmitting || batchJobActive}
+                  disabled={!imageFile || !maskDataUrl || isSubmitting || batchJobActive || isAutoRunning}
+                  title="Run inpainting directly (skip auto-setup)"
                 >
-                  {singleRunLabel}
+                  {isSubmitting ? "⟳" : "▶ Run"}
                 </button>
               </div>
             </div>
@@ -1659,7 +2287,7 @@ export default function HomePage() {
         </div>
 
         {/* ════ Center canvas ════ */}
-        <div className="canvas-center">
+        <div className="canvas-center" style={{ position: "relative" }}>
           {!canvasImageUrl ? (
             <label className="upload-zone" htmlFor={appMode === "single" ? "image-upload" : undefined}
               onClick={appMode === "batch" ? undefined : undefined}>
@@ -1675,6 +2303,17 @@ export default function HomePage() {
             </label>
           ) : (
             <>
+              {/* SAM2 auto-mask hint — shown when auto mode is active and no manual mask drawn */}
+              {params.automaskMode === "auto" && !maskDataUrl && canvasImageUrl && (
+                <div style={{
+                  position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+                  zIndex: 10, background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.4)",
+                  borderRadius: 6, padding: "5px 12px", fontSize: "0.7rem", color: "var(--accent-light)",
+                  pointerEvents: "none", whiteSpace: "nowrap",
+                }}>
+                  ⟳ SAM2 will generate mask automatically
+                </div>
+              )}
               <div className="canvas-scroll">
                 <MaskCanvas
                   key={appMode === "batch" ? batchCanvasKey : "single-canvas"}
@@ -1895,7 +2534,110 @@ export default function HomePage() {
           {/* ── Batch mode results ── */}
           {appMode === "batch" && (
             Object.keys(batchAllJobs).length > 0 ? (
-              batchStatus!.subJobs
+              <>
+                {/* Per-prompt summary table */}
+                {(() => {
+                  const rows = buildPromptTable(batchAllJobs);
+                  if (rows.length === 0) return null;
+                  const hasGT = rows.some((r) => r.hasGT);
+                  const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
+                  const iouColor  = (v: number) => v >= 0.75 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const confColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
+                  const detColor  = (v: number) => v >= 1 ? "var(--green)" : "var(--red)";
+                  return (
+                    <div className="card" style={{ marginBottom: 8 }}>
+                      <div className="card-header" style={{ justifyContent: "space-between" }}>
+                        <span>Prompt Sweep — Avg. Metrics per Variant</span>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ fontSize: "0.6rem", padding: "2px 8px" }}
+                          onClick={() => setPcaOpen((v) => !v)}
+                        >
+                          {pcaOpen ? "▲ Hide PCA" : "▼ Show PCA"}
+                        </button>
+                      </div>
+                      <div className="card-body" style={{ padding: "6px 0 2px" }}>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.7rem" }}>
+                            <thead>
+                              <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6rem" }}>
+                                <th style={{ textAlign: "left",  padding: "3px 8px", fontWeight: 700 }}>Prompt</th>
+                                <th style={{ textAlign: "center", padding: "3px 6px", fontWeight: 700 }}>N</th>
+                                <th style={{ textAlign: "right",  padding: "3px 6px", fontWeight: 700 }}>Det.</th>
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>Prec</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>Rec</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>FNR</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>mIoU</th>}
+                                <th style={{ textAlign: "right", padding: "3px 8px", fontWeight: 700 }}>mConf</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row, i) => (
+                                <tr
+                                  key={row.prompt}
+                                  style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : undefined }}
+                                >
+                                  <td style={{ padding: "4px 8px", color: "var(--accent-light)", fontWeight: 600, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.prompt}>
+                                    {row.prompt}
+                                  </td>
+                                  <td style={{ textAlign: "center", padding: "4px 6px", color: "var(--text-dim)" }}>{row.count}</td>
+                                  <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                    <strong style={{ color: detColor(row.avgDetections) }}>{row.avgDetections.toFixed(1)}</strong>
+                                  </td>
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.avgPrecision !== undefined
+                                        ? <strong style={{ color: precColor(row.avgPrecision) }}>{row.avgPrecision.toFixed(2)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.avgRecall !== undefined
+                                        ? <strong style={{ color: recColor(row.avgRecall) }}>{row.avgRecall.toFixed(2)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.avgFnr !== undefined
+                                        ? <strong style={{ color: fnrColor(row.avgFnr) }}>{row.avgFnr.toFixed(2)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.avgMeanIoU !== undefined
+                                        ? <strong style={{ color: iouColor(row.avgMeanIoU) }}>{row.avgMeanIoU.toFixed(2)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  <td style={{ textAlign: "right", padding: "4px 8px" }}>
+                                    <strong style={{ color: confColor(row.avgMeanConf) }}>{row.avgMeanConf.toFixed(2)}</strong>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {!hasGT && (
+                          <p className="hint" style={{ padding: "4px 8px 6px", color: "var(--text-muted)", fontSize: "0.6rem" }}>
+                            ⚠ No ground truth — GT-based columns hidden
+                          </p>
+                        )}
+                        {pcaOpen && (
+                          <div style={{ borderTop: "1px solid var(--border)", padding: "10px 10px 6px" }}>
+                            <PcaPlot points={buildPcaPoints(batchAllJobs)} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              {batchStatus!.subJobs
                 .filter((s) => batchAllJobs[s.imageIndex])
                 .map((s) => (
                   <BatchResultCard
@@ -1906,7 +2648,8 @@ export default function HomePage() {
                     onLightbox={(url, caption) => { setLightboxUrl(url); setLightboxCaption(caption); }}
                     onYoloCompare={(orig, inpainted, label) => setYoloCompare({ originalResult: orig, inpaintedResult: inpainted, inpaintedLabel: label })}
                   />
-                ))
+                ))}
+              </>
             ) : !batchStatus ? (
               <div className="empty-state">
                 <span style={{ fontSize: "2rem", opacity: 0.15 }}>◷</span>

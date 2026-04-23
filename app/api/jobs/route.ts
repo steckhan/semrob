@@ -131,6 +131,11 @@ export async function POST(request: Request) {
     sam2Prompt: String(formData.get("sam2Prompt") ?? "hand"),
     sam2Threshold: Number(formData.get("sam2Threshold") ?? DEFAULT_PARAMS.sam2Threshold),
     unetName: String(formData.get("unetName") ?? DEFAULT_PARAMS.unetName),
+    promptList: (() => {
+      const raw = formData.get("promptList");
+      if (!raw) return undefined;
+      try { return JSON.parse(String(raw)) as string[]; } catch { return undefined; }
+    })(),
   };
 
   const workflowName = String(formData.get("workflowName") ?? "").trim();

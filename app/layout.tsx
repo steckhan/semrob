@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata = {
-  title: "ComfyUI Inpaint Studio",
-  description: "Run multiple ComfyUI inpainting pipelines on one image.",
+  title: "SemProbe – Semantic Robustness Probing via Inpainting",
+  description: "An interactive tool for data augmentation for safety-critical object detection.",
 };
 
 type RootLayoutProps = {

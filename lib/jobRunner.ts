@@ -292,7 +292,11 @@ async function runJob(
   const outputs: JobOutput[] = [];
   const promptIds: Record<string, string> = {};
 
-  const variationCount = runningJob.params.variationCount ?? 1;
+  const promptList = runningJob.params.promptList?.filter((p) => p.trim());
+  const effectiveVariationCount =
+    promptList && promptList.length > 0
+      ? promptList.length
+      : (runningJob.params.variationCount ?? 1);
   const baseSeed = runningJob.params.seed;
 
   function seedForVariation(variationIndex: number): number {
@@ -306,14 +310,21 @@ async function runJob(
   // Build all (workflow, variationIndex) pairs
   const workflowVariations: Array<{ workflow: (typeof workflows)[number]; variationIndex: number }> = [];
   for (const workflow of workflows) {
-    for (let v = 0; v < variationCount; v++) {
+    for (let v = 0; v < effectiveVariationCount; v++) {
       workflowVariations.push({ workflow, variationIndex: v });
     }
   }
 
   await runWithConcurrency(workflowVariations, MAX_PARALLEL_WORKFLOWS, async ({ workflow, variationIndex }) => {
     const mapping = mappings.find((entry) => entry.workflowName === workflow.name);
-    const variationParams = { ...runningJob.params, seed: seedForVariation(variationIndex) };
+    const variationParams = {
+      ...runningJob.params,
+      seed: seedForVariation(variationIndex),
+      // Override positivePrompt per variation when a prompt sweep is active
+      ...(promptList && promptList.length > 0
+        ? { positivePrompt: promptList[variationIndex] ?? runningJob.params.positivePrompt }
+        : {}),
+    };
 
     // For alpha-mask workflows the image already has the mask composited into
     // its alpha channel; use the pre-written input_alpha.png instead of input.png

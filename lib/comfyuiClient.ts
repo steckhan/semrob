@@ -232,7 +232,7 @@ export async function pollWorkflow(
 export async function waitForWorkflow(
   promptId: string,
   comfyBaseUrl: string,
-  timeoutMs = 300_000,
+  timeoutMs = 1_800_000, // 30 min — covers long FLUX runs and queued prompt-sweep variants
 ): Promise<JobOutput[]> {
   console.log(`[ComfyUI] Waiting for prompt ${promptId} at ${comfyBaseUrl}`);
   const start = Date.now();

@@ -20,6 +20,8 @@ type BatchPanelProps = {
   uploadProgress: { uploaded: number; total: number } | null;
   batchStatus: { status: string; completedImages: number; failedImages: number; totalImages: number } | null;
   onRun: () => void;
+  onAutoRun?: () => void;
+  isAutoRunning?: boolean;
   onNew: () => void;
   singleJobActive: boolean;
   automaskMode?: "manual" | "auto";
@@ -38,6 +40,8 @@ export default function BatchPanel({
   uploadProgress,
   batchStatus,
   onRun,
+  onAutoRun,
+  isAutoRunning = false,
   onNew,
   singleJobActive,
   automaskMode,
@@ -292,24 +296,38 @@ export default function BatchPanel({
               Single job in progress
             </p>
           )}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className={`btn-run${isRunning ? " running" : ""}`}
-              style={{ flex: 1 }}
-              disabled={!allMasked || isRunning || singleJobActive}
-              onClick={onRun}
-            >
-              {runLabel}
-            </button>
-            {batchStatus?.status === "completed" && (
+          <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+            {/* Auto Run button — no mask required, SAM2 will generate masks */}
+            {onAutoRun && (
               <button
-                className="btn btn-outline"
-                style={{ whiteSpace: "nowrap" }}
-                onClick={onNew}
+                className={`btn-run${(isAutoRunning || isRunning) ? " running" : ""}`}
+                style={{ background: "linear-gradient(135deg, var(--accent-dim), var(--accent))", fontSize: "0.8rem" }}
+                disabled={images.length === 0 || isRunning || singleJobActive || isAutoRunning}
+                onClick={onAutoRun}
+                title="Auto-extract ODD factors & SAM2 target, then run batch (SAM2 generates masks automatically)"
               >
-                New
+                {isAutoRunning ? "⟳  Setting up…" : isRunning ? "⟳  Processing…" : "✦ Auto Run →"}
               </button>
             )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className={`btn-run${isRunning ? " running" : ""}`}
+                style={{ flex: 1, fontSize: "0.75rem" }}
+                disabled={!allMasked || isRunning || singleJobActive || isAutoRunning}
+                onClick={onRun}
+              >
+                {runLabel}
+              </button>
+              {batchStatus?.status === "completed" && (
+                <button
+                  className="btn btn-outline"
+                  style={{ whiteSpace: "nowrap" }}
+                  onClick={onNew}
+                >
+                  New
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

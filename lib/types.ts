@@ -17,6 +17,8 @@ export type InpaintParams = {
   sam2Prompt?: string;
   sam2Threshold?: number;
   unetName?: string;
+  /** Prompt sweep: one prompt per variation. When non-empty, overrides positivePrompt and variationCount. */
+  promptList?: string[];
 };
 
 export type WorkflowDefinition = {

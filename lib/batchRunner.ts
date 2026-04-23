@@ -109,7 +109,7 @@ export async function runBatch(batchId: string): Promise<void> {
 
       // Wait for the job to complete by polling the job file
       let attempts = 0;
-      const MAX_POLL = 600; // up to ~15 min per image
+      const MAX_POLL = 1200; // up to ~30 min per image (covers FLUX + prompt-sweep queue time)
       while (attempts < MAX_POLL) {
         await new Promise((res) => setTimeout(res, 1500));
         const { readJob } = await import("./jobStore");
