@@ -1,0 +1,92 @@
+# ── How to use ─────────────────────────────────────────────────────────────────
+#
+#  DEVELOPER (build & push):
+#    docker compose build
+#    docker compose push
+#
+#  TESTER (pull & run — no source code needed):
+#    docker compose pull
+#    docker compose up
+#
+#  No env vars required — everything is baked into the images.
+#  Optional: set GT_DATA_HOST_PATH in .env.local to use your own ground-truth labels.
+#
+# ───────────────────────────────────────────────────────────────────────────────
+
+services:
+  nextjs:
+    image: krutarth29/semprob:ecml-inpaint
+    build:
+      context: .
+      dockerfile: Dockerfile.nextjs
+    ports:
+      - "3000:3000"
+    env_file: .env.local
+    environment:
+      - YOLO_PYTHON=/usr/bin/python3
+      - YOLO_SCRIPT_PATH=/app/scripts/yolo_detect.py
+      - YOLO_MODEL_PATH=/models/best.pt
+      - COMFYUI_BASE_URL=http://comfyui:8188
+      - COMFYUI_INPUT_DIR_WINDOWS=/comfyui_input
+      - COMFYUI_OUTPUT_DIR_WINDOWS=/comfyui_output
+      - GT_DIR=/gt_data
+    volumes:
+      - yolo_output:/tmp/yolo_output
+      - comfyui_input:/comfyui_input
+      - comfyui_output:/comfyui_output
+      - ${GT_DATA_HOST_PATH:-./IPA_repo/obj_Test_data}:/gt_data:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      - python
+      - comfyui
+
+  python:
+    image: krutarth29/semprob:ecml-yolo
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    volumes:
+      - yolo_output:/tmp/yolo_output
+    environment:
+      - YOLO_MODEL_PATH=/models/best.pt
+
+  comfyui:
+    image: krutarth29/semprob:ecml-comfyui
+    build:
+      context: ${COMFYUI_HOST_PATH:-C:/Users/KIAdmin/ComfyUI}
+      dockerfile: Dockerfile.comfyui
+    ports:
+      - "8188:8188"
+    volumes:
+      # Workflow JSON (small, from ECML repo)
+      - ./workflows/flux2_klein_sam2.json:/app/user/default/workflows/flux2_klein_sam2.json:ro
+      # Auto-load this workflow on ComfyUI startup
+      - ./workflows/flux2_klein_sam2.json:/app/user/default/workflows/.default.json:ro
+      # Runtime I/O shared with nextjs container
+      - comfyui_input:/app/input
+      - comfyui_output:/app/output
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  yolo_output:
+  comfyui_input:
+  comfyui_output:
