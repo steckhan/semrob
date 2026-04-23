@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 
 const ENV_ROOT = process.env.INPAINT_ROOT;
@@ -41,14 +42,15 @@ export const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 export const MAX_PARALLEL_WORKFLOWS = 2;
 export const DATA_ROOT = path.join(PROJECT_ROOT, "data");
 export const WORKFLOWS_DIR = path.join(PROJECT_ROOT, "workflows");
+const _winUser = process.env.USERNAME ?? process.env.USER ?? os.userInfo().username;
 export const COMFYUI_INPUT_DIR =
-  process.env.COMFYUI_INPUT_DIR ?? "/mnt/c/Users/YOUR_USERNAME/ComfyUI/input";
+  process.env.COMFYUI_INPUT_DIR ?? `/mnt/c/Users/${_winUser}/ComfyUI/input`;
 export const COMFYUI_INPUT_DIR_WINDOWS =
-  process.env.COMFYUI_INPUT_DIR_WINDOWS ?? "C:\\Users\\YOUR_USERNAME\\ComfyUI\\input";
+  process.env.COMFYUI_INPUT_DIR_WINDOWS ?? `C:\\Users\\${_winUser}\\ComfyUI\\input`;
 export const COMFYUI_OUTPUT_DIR =
-  process.env.COMFYUI_OUTPUT_DIR ?? "/mnt/c/Users/YOUR_USERNAME/ComfyUI/output";
+  process.env.COMFYUI_OUTPUT_DIR ?? `/mnt/c/Users/${_winUser}/ComfyUI/output`;
 export const COMFYUI_OUTPUT_DIR_WINDOWS =
-  process.env.COMFYUI_OUTPUT_DIR_WINDOWS ?? "C:\\Users\\YOUR_USERNAME\\ComfyUI\\output";
+  process.env.COMFYUI_OUTPUT_DIR_WINDOWS ?? `C:\\Users\\${_winUser}\\ComfyUI\\output`;
 export const YOLO_PYTHON =
   process.env.YOLO_PYTHON ?? "python";
 export const YOLO_CONF_THRESHOLD = 0.25;

@@ -824,9 +824,9 @@ input[type="range"]:disabled {
 
 /* ── Detection badge ── */
 .detection-badge {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
   border-radius: 20px;
   padding: 2px 8px;
   font-size: 0.65rem;
@@ -834,9 +834,9 @@ input[type="range"]:disabled {
 }
 
 .detection-badge.clear {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--green);
-  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* ── Lightbox ── */

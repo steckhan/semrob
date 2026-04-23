@@ -8,7 +8,6 @@ import sharp from "sharp";
 
 import {
   COMFYUI_BASE_URL,
-  COMFYUI_INPUT_DIR_WINDOWS,
   DATA_ROOT,
   MAX_PARALLEL_WORKFLOWS,
 } from "./constants";
@@ -20,7 +19,7 @@ import type {
   WorkflowMapping,
 } from "./types";
 import { runWithConcurrency } from "./concurrency";
-import { buildPatchedWorkflow, submitPatchedWorkflow, waitForWorkflow } from "./comfyuiClient";
+import { buildPatchedWorkflow, submitPatchedWorkflow, uploadImageToComfyUI, waitForWorkflow } from "./comfyuiClient";
 import { ensureJobStore, updateJobStatus, writeJob } from "./jobStore";
 import { runOpenAIInpainting } from "./openaiInpaintClient";
 import { DEFAULT_PATCH_TARGETS } from "./workflowPatcher";
@@ -167,29 +166,23 @@ export async function createJob({
   await fs.writeFile(imagePath, imageBuffer);
   await fs.writeFile(maskPath, maskBuffer);
 
-  // Only copy to ComfyUI input directory when running locally
+  // Upload images to ComfyUI via its HTTP API — cross-platform (no filesystem access needed)
   let comfyImagePathWindows = "";
   let comfyMaskPathWindows = "";
   if (inpaintMode !== "api") {
-    const comfyJobDir = path.join(COMFYUI_INPUT_DIR_WINDOWS, jobId);
-    const comfyImagePath = path.join(comfyJobDir, "input.png");
-    const comfyMaskPath = path.join(comfyJobDir, "mask.png");
+    const effectiveComfyBaseUrl = comfyBaseUrl ?? COMFYUI_BASE_URL;
 
-    await fs.mkdir(comfyJobDir, { recursive: true });
-
-    // If any workflow needs alpha-mask mode, write a composited image too
+    // If any workflow needs alpha-mask mode, upload a composited image too
     const needsAlpha = mappings.some(isAlphaMaskWorkflow);
     if (needsAlpha) {
       const composited = await compositeAlphaMask(imageBuffer, maskBuffer);
-      await fs.writeFile(path.join(comfyJobDir, "input_alpha.png"), composited);
+      await uploadImageToComfyUI(composited, "input_alpha.png", jobId, effectiveComfyBaseUrl);
     }
 
-    await fs.writeFile(comfyImagePath, imageBuffer);
-    await fs.writeFile(comfyMaskPath, maskBuffer);
-
-    // ComfyUI LoadImage expects paths relative to its input directory
-    comfyImagePathWindows = `${jobId}/input.png`;
-    comfyMaskPathWindows = `${jobId}/mask.png`;
+    // ComfyUI LoadImage expects paths relative to its input directory;
+    // the upload API returns "subfolder/filename" which is exactly that.
+    comfyImagePathWindows = await uploadImageToComfyUI(imageBuffer, "input.png", jobId, effectiveComfyBaseUrl);
+    comfyMaskPathWindows = await uploadImageToComfyUI(maskBuffer, "mask.png", jobId, effectiveComfyBaseUrl);
   }
 
   const job: JobRecord = {
@@ -292,7 +285,11 @@ async function runJob(
   const outputs: JobOutput[] = [];
   const promptIds: Record<string, string> = {};
 
-  const variationCount = runningJob.params.variationCount ?? 1;
+  const promptList = runningJob.params.promptList?.filter((p) => p.trim());
+  const effectiveVariationCount =
+    promptList && promptList.length > 0
+      ? promptList.length
+      : (runningJob.params.variationCount ?? 1);
   const baseSeed = runningJob.params.seed;
 
   function seedForVariation(variationIndex: number): number {
@@ -306,14 +303,21 @@ async function runJob(
   // Build all (workflow, variationIndex) pairs
   const workflowVariations: Array<{ workflow: (typeof workflows)[number]; variationIndex: number }> = [];
   for (const workflow of workflows) {
-    for (let v = 0; v < variationCount; v++) {
+    for (let v = 0; v < effectiveVariationCount; v++) {
       workflowVariations.push({ workflow, variationIndex: v });
     }
   }
 
   await runWithConcurrency(workflowVariations, MAX_PARALLEL_WORKFLOWS, async ({ workflow, variationIndex }) => {
     const mapping = mappings.find((entry) => entry.workflowName === workflow.name);
-    const variationParams = { ...runningJob.params, seed: seedForVariation(variationIndex) };
+    const variationParams = {
+      ...runningJob.params,
+      seed: seedForVariation(variationIndex),
+      // Override positivePrompt per variation when a prompt sweep is active
+      ...(promptList && promptList.length > 0
+        ? { positivePrompt: promptList[variationIndex] ?? runningJob.params.positivePrompt }
+        : {}),
+    };
 
     // For alpha-mask workflows the image already has the mask composited into
     // its alpha channel; use the pre-written input_alpha.png instead of input.png
