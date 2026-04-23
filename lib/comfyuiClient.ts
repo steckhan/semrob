@@ -250,6 +250,112 @@ export async function waitForWorkflow(
   throw new Error(`Timed out waiting for ComfyUI prompt ${promptId}`);
 }
 
+/**
+ * Upload an image buffer to ComfyUI via its HTTP /upload/image endpoint.
+ * Works cross-platform (no filesystem access to ComfyUI's input directory needed).
+ *
+ * @param buffer  Raw PNG (or any image) bytes
+ * @param filename  Desired filename, e.g. "input.png"
+ * @param subfolder  Optional subfolder inside ComfyUI's input directory (e.g. a job ID)
+ * @param comfyBaseUrl  ComfyUI base URL
+ * @returns The path ComfyUI uses to reference the file, e.g. "jobId/input.png"
+ */
+export async function uploadImageToComfyUI(
+  buffer: Buffer,
+  filename: string,
+  subfolder: string,
+  comfyBaseUrl: string,
+): Promise<string> {
+  const boundary = `----FormBoundary${randomUUID().replace(/-/g, "")}`;
+
+  // Build multipart/form-data body manually (no fetch / FormData available in this context)
+  const parts: Buffer[] = [];
+
+  // "image" field — the file bytes
+  parts.push(
+    Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="image"; filename="${filename}"\r\n` +
+        `Content-Type: image/png\r\n\r\n`,
+    ),
+  );
+  parts.push(buffer);
+  parts.push(Buffer.from(`\r\n`));
+
+  // "subfolder" field
+  if (subfolder) {
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="subfolder"\r\n\r\n` +
+          `${subfolder}\r\n`,
+      ),
+    );
+  }
+
+  // "overwrite" field — overwrite if the job re-runs with the same ID
+  parts.push(
+    Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="overwrite"\r\n\r\ntrue\r\n`,
+    ),
+  );
+
+  parts.push(Buffer.from(`--${boundary}--\r\n`));
+  const body = Buffer.concat(parts);
+
+  return new Promise<string>((resolve, reject) => {
+    const parsed = new URL(`${comfyBaseUrl}/upload/image`);
+    const client = parsed.protocol === "https:" ? https : http;
+    const req = client.request(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === "https:" ? 443 : 80),
+        path: parsed.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Length": body.length,
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          if ((res.statusCode ?? 0) < 200 || (res.statusCode ?? 0) >= 300) {
+            reject(
+              new Error(
+                `ComfyUI /upload/image failed with HTTP ${res.statusCode}: ${Buffer.concat(chunks).toString()}`,
+              ),
+            );
+            return;
+          }
+          const json = JSON.parse(Buffer.concat(chunks).toString()) as {
+            name: string;
+            subfolder: string;
+            type: string;
+          };
+          // Reconstruct the path ComfyUI workflows use to reference this file
+          const uploadedPath = json.subfolder
+            ? `${json.subfolder}/${json.name}`
+            : json.name;
+          resolve(uploadedPath);
+        });
+        res.on("error", reject);
+      },
+    );
+    req.on("error", (err) =>
+      reject(
+        new Error(`Could not reach ComfyUI at ${comfyBaseUrl} while uploading image.`, {
+          cause: err,
+        }),
+      ),
+    );
+    req.write(body);
+    req.end();
+  });
+}
+
 export async function fetchImageBuffer(
   imagePath: string,
   subfolder: string,

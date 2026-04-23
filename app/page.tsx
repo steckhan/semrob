@@ -65,6 +65,8 @@ type YoloJobResults = {
   frameTp?: number;
   frameFp?: number;
   frameFn?: number;
+  frameMeanIoU?: number;
+  frameMeanConfidence?: number;
   // Inpainted vs GT (primary research metric)
   inpaintedFrameAP?: number;
   inpaintedFramePrecision?: number;
@@ -73,6 +75,8 @@ type YoloJobResults = {
   inpaintedFrameTp?: number;
   inpaintedFrameFp?: number;
   inpaintedFrameFn?: number;
+  inpaintedFrameMeanIoU?: number;
+  inpaintedFrameMeanConfidence?: number;
   error?: string;
 };
 
@@ -2275,7 +2279,7 @@ export default function HomePage() {
                 <button
                   className={`btn-run${isSubmitting ? " running" : ""}`}
                   style={{ flex: 1, fontSize: "0.7rem" }}
-                  onClick={submitJob}
+                  onClick={() => void submitJob()}
                   disabled={!imageFile || !maskDataUrl || isSubmitting || batchJobActive || isAutoRunning}
                   title="Run inpainting directly (skip auto-setup)"
                 >

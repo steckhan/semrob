@@ -8,7 +8,6 @@ import sharp from "sharp";
 
 import {
   COMFYUI_BASE_URL,
-  COMFYUI_INPUT_DIR_WINDOWS,
   DATA_ROOT,
   MAX_PARALLEL_WORKFLOWS,
 } from "./constants";
@@ -20,7 +19,7 @@ import type {
   WorkflowMapping,
 } from "./types";
 import { runWithConcurrency } from "./concurrency";
-import { buildPatchedWorkflow, submitPatchedWorkflow, waitForWorkflow } from "./comfyuiClient";
+import { buildPatchedWorkflow, submitPatchedWorkflow, uploadImageToComfyUI, waitForWorkflow } from "./comfyuiClient";
 import { ensureJobStore, updateJobStatus, writeJob } from "./jobStore";
 import { runOpenAIInpainting } from "./openaiInpaintClient";
 import { DEFAULT_PATCH_TARGETS } from "./workflowPatcher";
@@ -167,29 +166,23 @@ export async function createJob({
   await fs.writeFile(imagePath, imageBuffer);
   await fs.writeFile(maskPath, maskBuffer);
 
-  // Only copy to ComfyUI input directory when running locally
+  // Upload images to ComfyUI via its HTTP API — cross-platform (no filesystem access needed)
   let comfyImagePathWindows = "";
   let comfyMaskPathWindows = "";
   if (inpaintMode !== "api") {
-    const comfyJobDir = path.join(COMFYUI_INPUT_DIR_WINDOWS, jobId);
-    const comfyImagePath = path.join(comfyJobDir, "input.png");
-    const comfyMaskPath = path.join(comfyJobDir, "mask.png");
+    const effectiveComfyBaseUrl = comfyBaseUrl ?? COMFYUI_BASE_URL;
 
-    await fs.mkdir(comfyJobDir, { recursive: true });
-
-    // If any workflow needs alpha-mask mode, write a composited image too
+    // If any workflow needs alpha-mask mode, upload a composited image too
     const needsAlpha = mappings.some(isAlphaMaskWorkflow);
     if (needsAlpha) {
       const composited = await compositeAlphaMask(imageBuffer, maskBuffer);
-      await fs.writeFile(path.join(comfyJobDir, "input_alpha.png"), composited);
+      await uploadImageToComfyUI(composited, "input_alpha.png", jobId, effectiveComfyBaseUrl);
     }
 
-    await fs.writeFile(comfyImagePath, imageBuffer);
-    await fs.writeFile(comfyMaskPath, maskBuffer);
-
-    // ComfyUI LoadImage expects paths relative to its input directory
-    comfyImagePathWindows = `${jobId}/input.png`;
-    comfyMaskPathWindows = `${jobId}/mask.png`;
+    // ComfyUI LoadImage expects paths relative to its input directory;
+    // the upload API returns "subfolder/filename" which is exactly that.
+    comfyImagePathWindows = await uploadImageToComfyUI(imageBuffer, "input.png", jobId, effectiveComfyBaseUrl);
+    comfyMaskPathWindows = await uploadImageToComfyUI(maskBuffer, "mask.png", jobId, effectiveComfyBaseUrl);
   }
 
   const job: JobRecord = {
