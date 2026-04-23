@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { COMFYUI_BASE_URL, OPENAI_API_KEY } from "@/lib/constants";
+import { COMFYUI_BASE_URL, OPENAI_API_KEY, resolveComfyUrl } from "@/lib/constants";
 import { createJob } from "@/lib/jobRunner";
 import type { InpaintParams } from "@/lib/types";
 import { loadWorkflowBundle } from "@/lib/workflowLoader";
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const imageFile = formData.get("image") as File | null;
   const maskFile = formData.get("mask") as File | null;
+  const gtFile = formData.get("gtFile") as File | null;
   const rawComfyBaseUrl = formData.get("comfyBaseUrl");
   const comfyBaseUrl = parseComfyBaseUrl(rawComfyBaseUrl);
 
@@ -153,15 +154,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const [imageBuffer, maskBuffer] = await Promise.all([
+    const [imageBuffer, maskBuffer, gtBuffer] = await Promise.all([
       imageFile.arrayBuffer(),
       maskFile.arrayBuffer(),
+      gtFile ? gtFile.arrayBuffer() : Promise.resolve(null),
     ]);
 
     const job = await createJob({
       imageBuffer: Buffer.from(imageBuffer),
       maskBuffer: Buffer.from(maskBuffer),
-      comfyBaseUrl: inpaintMode === "local" ? (comfyBaseUrl ?? COMFYUI_BASE_URL) : undefined,
+      comfyBaseUrl: inpaintMode === "local" ? resolveComfyUrl(comfyBaseUrl) : undefined,
       params,
       workflows: inpaintMode === "local" ? workflows : [],
       mappings: inpaintMode === "local" ? mappings : [],
@@ -169,6 +171,7 @@ export async function POST(request: Request) {
       openaiApiKey: inpaintMode === "api" ? openaiApiKey : undefined,
       openaiModel: inpaintMode === "api" ? openaiModel : undefined,
       originalFilename: imageFile.name,
+      gtBuffer: gtBuffer ? Buffer.from(gtBuffer) : undefined,
     });
 
     return NextResponse.json(job);

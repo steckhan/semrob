@@ -40,6 +40,7 @@ export async function POST(
   const imageFiles = formData.getAll("images[]") as File[];
   const maskDataUrls = formData.getAll("masks[]") as string[];
   const names = formData.getAll("names[]") as string[];
+  const gtFiles = formData.getAll("gtFiles[]") as (File | string)[];
 
   if (imageFiles.length === 0) {
     return NextResponse.json({ error: "No images provided" }, { status: 400 });
@@ -81,6 +82,14 @@ export async function POST(
     const maskPath = path.join(batchImagesDir, `mask_${globalIndex}.png`);
     await fs.writeFile(imagePath, imageBuffer);
     await fs.writeFile(maskPath, maskBuffer);
+
+    // Save GT label file if provided and non-empty
+    const gtEntry = gtFiles[i];
+    if (gtEntry && typeof gtEntry !== "string" && gtEntry.size > 0) {
+      const gtBuffer = Buffer.from(await gtEntry.arrayBuffer());
+      const gtPath = path.join(batchImagesDir, `gt_${globalIndex}.txt`);
+      await fs.writeFile(gtPath, gtBuffer);
+    }
 
     newSubJobs.push({
       imageIndex: globalIndex,

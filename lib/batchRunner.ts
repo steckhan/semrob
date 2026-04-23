@@ -84,10 +84,12 @@ export async function runBatch(batchId: string): Promise<void> {
     try {
       const imagePath = path.join(batchImagesDir, `image_${subJob.imageIndex}.png`);
       const maskPath = path.join(batchImagesDir, `mask_${subJob.imageIndex}.png`);
+      const gtPath = path.join(batchImagesDir, `gt_${subJob.imageIndex}.txt`);
 
-      const [imageBuffer, maskBuffer] = await Promise.all([
+      const [imageBuffer, maskBuffer, gtBuffer] = await Promise.all([
         fs.readFile(imagePath),
         fs.readFile(maskPath),
+        fs.readFile(gtPath).catch(() => null),
       ]);
 
       current.subJobs[idx].status = "running";
@@ -96,6 +98,7 @@ export async function runBatch(batchId: string): Promise<void> {
       const job = await createJob({
         imageBuffer,
         maskBuffer,
+        gtBuffer: gtBuffer ?? undefined,
         params: current.params,
         workflows,
         mappings,

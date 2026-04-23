@@ -41,6 +41,9 @@ function nativeRequest(
       });
       res.on("error", reject);
     });
+    req.setTimeout(15000, () => {
+      req.destroy(new Error(`Request to ${url} timed out after 15s`));
+    });
     req.on("error", reject);
     if (options?.body) req.write(options.body);
     req.end();
@@ -242,7 +245,14 @@ export async function waitForWorkflow(
     // Back off: 300 → 600 → 1200 → 1500ms cap
     delay = Math.min(delay * 2, 1500);
 
-    const result = await checkWorkflowHistory(promptId, comfyBaseUrl);
+    let result: PollResult;
+    try {
+      result = await checkWorkflowHistory(promptId, comfyBaseUrl);
+    } catch (err) {
+      // ComfyUI may be temporarily busy loading models — log and retry
+      console.warn(`[ComfyUI] Transient poll error (will retry): ${err}`);
+      continue;
+    }
     if (!result.done) continue;
     if ("error" in result) throw new Error(result.error);
     return result.outputs;

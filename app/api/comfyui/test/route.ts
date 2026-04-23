@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { COMFYUI_BASE_URL } from "../../../../lib/constants";
+import { COMFYUI_BASE_URL, resolveComfyUrl } from "../../../../lib/constants";
 
 function parseComfyBaseUrl(value: string): string | null {
   const trimmed = value.trim();
@@ -24,9 +24,9 @@ function parseComfyBaseUrl(value: string): string | null {
 
 export async function POST(request: Request) {
   const payload = (await request.json()) as { comfyBaseUrl?: string };
-  const targetUrl = payload.comfyBaseUrl
-    ? parseComfyBaseUrl(payload.comfyBaseUrl)
-    : COMFYUI_BASE_URL;
+  const targetUrl = resolveComfyUrl(
+    payload.comfyBaseUrl ? parseComfyBaseUrl(payload.comfyBaseUrl) : null
+  );
 
   if (!targetUrl) {
     return NextResponse.json(

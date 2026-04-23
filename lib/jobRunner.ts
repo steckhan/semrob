@@ -140,6 +140,7 @@ export type CreateJobInput = {
   openaiApiKey?: string;
   openaiModel?: string;
   originalFilename?: string;
+  gtBuffer?: Buffer;
 };
 
 export async function createJob({
@@ -153,6 +154,7 @@ export async function createJob({
   openaiApiKey,
   openaiModel,
   originalFilename,
+  gtBuffer,
 }: CreateJobInput): Promise<JobRecord> {
   await ensureJobStore();
 
@@ -165,6 +167,10 @@ export async function createJob({
 
   await fs.writeFile(imagePath, imageBuffer);
   await fs.writeFile(maskPath, maskBuffer);
+
+  if (gtBuffer) {
+    await fs.writeFile(path.join(jobDir, "gt.txt"), gtBuffer);
+  }
 
   // Upload images to ComfyUI via its HTTP API — cross-platform (no filesystem access needed)
   let comfyImagePathWindows = "";

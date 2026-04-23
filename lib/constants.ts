@@ -38,6 +38,22 @@ function normalizeBaseUrl(value: string): string {
 export const COMFYUI_BASE_URL = normalizeBaseUrl(
   process.env.COMFYUI_BASE_URL ?? "http://localhost:8188",
 );
+
+/**
+ * Resolves a ComfyUI URL supplied by the browser for use server-side.
+ * When running in Docker, the browser sends http://localhost:8188 but the
+ * server must use http://comfyui:8188 (internal Docker network).
+ * If COMFYUI_BASE_URL env var differs from localhost, it always wins.
+ */
+export function resolveComfyUrl(clientUrl: string | null | undefined): string {
+  if (!clientUrl) return COMFYUI_BASE_URL;
+  const normalized = normalizeBaseUrl(clientUrl);
+  // If the env var points somewhere other than localhost, always use it
+  if (!COMFYUI_BASE_URL.includes("localhost") && !COMFYUI_BASE_URL.includes("127.0.0.1")) {
+    return COMFYUI_BASE_URL;
+  }
+  return normalized;
+}
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 export const MAX_PARALLEL_WORKFLOWS = 2;
 export const DATA_ROOT = path.join(PROJECT_ROOT, "data");

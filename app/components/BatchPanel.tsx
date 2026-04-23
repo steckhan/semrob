@@ -7,6 +7,7 @@ export type BatchImage = {
   file: File;
   previewUrl: string;
   maskDataUrl: string | null;
+  gtFile?: File | null;
 };
 
 type BatchPanelProps = {
@@ -27,6 +28,7 @@ type BatchPanelProps = {
   automaskMode?: "manual" | "auto";
   maskUrls?: (string | null)[];
   onMaskLightbox?: (url: string, caption: string) => void;
+  onGtFilesAdd?: (gtFiles: File[]) => void;
 };
 
 export default function BatchPanel({
@@ -47,13 +49,16 @@ export default function BatchPanel({
   automaskMode,
   maskUrls,
   onMaskLightbox,
+  onGtFilesAdd,
 }: BatchPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const gtFolderInputRef = useRef<HTMLInputElement>(null);
 
   const isAutoMask = automaskMode === "auto";
   const maskedCount = images.filter((img) => img.maskDataUrl !== null).length;
   const allMasked = images.length > 0 && (isAutoMask || maskedCount === images.length);
+  const gtCount = images.filter((img) => img.gtFile).length;
 
   const nextUnmaskedIndex = isAutoMask ? -1 : images.findIndex((img) => img.maskDataUrl === null);
 
@@ -126,6 +131,31 @@ export default function BatchPanel({
           style={{ display: "none" }}
           onChange={(e) => handleFileInput(e.target.files)}
         />
+        {onGtFilesAdd && images.length > 0 && (
+          <>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ color: "var(--accent-light)", borderColor: "var(--accent-light)" }}
+              onClick={() => gtFolderInputRef.current?.click()}
+              disabled={isRunning}
+              title="Upload a folder of YOLO .txt ground-truth files (matched by filename)"
+            >
+              +GT Labels
+            </button>
+            <input
+              ref={gtFolderInputRef}
+              type="file"
+              accept=".txt"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []).filter((f) => f.name.endsWith(".txt"));
+                if (files.length > 0) onGtFilesAdd(files);
+                e.target.value = "";
+              }}
+            />
+          </>
+        )}
       </div>
 
       {/* Summary + progress */}
@@ -135,6 +165,14 @@ export default function BatchPanel({
             <span className="batch-summary-label">Images</span>
             <span className="batch-summary-val">{images.length}</span>
           </div>
+          {gtCount > 0 && (
+            <div className="batch-summary-row">
+              <span className="batch-summary-label">GT Labels</span>
+              <span className="batch-summary-val" style={{ color: gtCount === images.length ? "var(--green)" : "var(--orange)" }}>
+                {gtCount} / {images.length}
+              </span>
+            </div>
+          )}
           {isAutoMask ? (
             <p className="hint" style={{ color: "var(--accent-light)", marginBottom: 2 }}>
               SAM2 auto-mask active — no manual masking needed

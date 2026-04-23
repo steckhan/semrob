@@ -57,28 +57,27 @@ function spawnYolo(args: string[]): Promise<void> {
   });
 }
 
-/** Check whether a GT .txt file exists for the given image filename (case-insensitive). */
-async function gtFileExists(imageFilename: string): Promise<boolean> {
-  const basename = path.parse(imageFilename).name.toLowerCase();
-  try {
-    const entries = await fs.readdir(GT_DIR);
-    return entries.some(
-      (e) => e.toLowerCase() === `${basename}.txt`,
-    );
-  } catch {
-    return false;
-  }
-}
-
 export async function runYoloOnJob(jobId: string): Promise<void> {
   const job = await readJob(jobId);
   if (!job) return;
 
   const yoloOutputDir = path.join(YOLO_DIR, jobId);
 
-  // Determine GT availability based on original filename
+  // Determine GT availability: check per-job gt.txt first, then fall back to GT_DIR by filename
+  const jobUploadDir = path.join(UPLOADS_DIR, jobId);
   const originalFilename = job.originalFilename ?? "";
-  const gtAvailable = originalFilename ? await gtFileExists(originalFilename) : false;
+  let gtFilePath = path.join(jobUploadDir, "gt.txt");
+  let gtAvailable = await fs.access(gtFilePath).then(() => true).catch(() => false);
+
+  if (!gtAvailable && originalFilename) {
+    const frameStem = path.parse(originalFilename).name;
+    const gtDirFilePath = path.join(GT_DIR, `${frameStem}.txt`);
+    const gtDirAvailable = await fs.access(gtDirFilePath).then(() => true).catch(() => false);
+    if (gtDirAvailable) {
+      gtFilePath = gtDirFilePath;
+      gtAvailable = true;
+    }
+  }
 
   // Mark as running
   await writeJob({
@@ -118,8 +117,8 @@ export async function runYoloOnJob(jobId: string): Promise<void> {
     ];
 
     if (gtAvailable) {
-      yoloArgs.push("--gt-dir", GT_DIR);
-      yoloArgs.push("--gt-name", originalFilename);
+      yoloArgs.push("--gt-dir", path.dirname(gtFilePath));
+      yoloArgs.push("--gt-name", path.basename(gtFilePath));
     }
 
     await spawnYolo(yoloArgs);

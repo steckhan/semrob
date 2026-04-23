@@ -972,6 +972,7 @@ export default function HomePage() {
   const [appMode, setAppMode] = useState<"single" | "batch">("single");
 
   // ── Single mode state ─────────────────────────────────────────────────────
+  const [gtFile, setGtFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
@@ -1340,6 +1341,7 @@ export default function HomePage() {
       const activeMaskDataUrl = maskDataUrl ?? "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=";
       const maskBlob = dataUrlToBlob(activeMaskDataUrl);
       formData.append("mask", maskBlob, "mask.png");
+      if (gtFile) formData.append("gtFile", gtFile);
       Object.entries(effectiveParams).forEach(([key, value]) => formData.append(key, String(value)));
       if (effectivePromptList.length > 0) {
         formData.append("promptList", JSON.stringify(effectivePromptList));
@@ -1422,6 +1424,11 @@ export default function HomePage() {
           uploadForm.append("images[]", img.file);
           uploadForm.append("masks[]", img.maskDataUrl ?? "");
           uploadForm.append("names[]", img.file.name);
+          if (img.gtFile) {
+            uploadForm.append("gtFiles[]", img.gtFile);
+          } else {
+            uploadForm.append("gtFiles[]", new Blob([], { type: "text/plain" }), "");
+          }
         }
 
         const upRes = await fetch(`/api/batch/${batchId}/upload`, {
@@ -1682,6 +1689,17 @@ export default function HomePage() {
     fetchedBatchIndices.current = new Set();
   }, []);
 
+  const handleBatchGtFilesAdd = useCallback((gtFiles: File[]) => {
+    setBatchImages((prev) => {
+      const gtByName = new Map(gtFiles.map((f) => [f.name.replace(/\.txt$/i, "").toLowerCase(), f]));
+      return prev.map((img) => {
+        const stem = img.file.name.replace(/\.[^.]+$/, "").toLowerCase();
+        const match = gtByName.get(stem) ?? null;
+        return match ? { ...img, gtFile: match } : img;
+      });
+    });
+  }, []);
+
   // Detect active batch image change to reset canvas key
   const batchCanvasKey = `batch-canvas-${batchActiveIndex}-${batchImages[batchActiveIndex]?.id ?? "empty"}`;
 
@@ -1690,12 +1708,20 @@ export default function HomePage() {
     ? (isSubmitting || job?.status === "running")
     : (isBatchRunning || batchStatus?.status === "running" || batchStatus?.status === "completed");
 
-  // Steps: Upload → Mask → Run → Results (single mode only)
+  // Steps: Upload → Mask → Run → Results
   const stepDone = [
     !!imageFile,
     !!maskDataUrl || params.automaskMode === "auto", // mask optional when SAM2 auto-mode is active
     !!job,
     job?.status === "completed",
+  ];
+
+  const batchAllMasked = batchImages.length > 0 && (params.automaskMode === "auto" || batchImages.every((img) => img.maskDataUrl !== null));
+  const batchStepDone = [
+    batchImages.length > 0,
+    batchAllMasked,
+    isBatchRunning || batchStatus != null,
+    batchStatus?.status === "completed",
   ];
 
   // ── Job active guards ─────────────────────────────────────────────────────
@@ -1780,28 +1806,23 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* ── Steps bar (single mode) / mode tab switcher ── */}
+      {/* ── Steps bar / mode tab switcher ── */}
       <nav className="steps-bar">
-        {appMode === "single" ? (
-          <>
-            {(["Upload", "Mask", "Run", "Results"] as const).map((label, i) => {
-              const done = stepDone[i];
-              const active = !done && (i === 0 || stepDone[i - 1]);
-              return (
-                <div key={label} style={{ display: "contents" }}>
-                  {i > 0 && <div className="step-connector" />}
-                  <div className={`step-item${done ? " done" : active ? " active" : ""}`}>
-                    <div className="step-num">{done ? "✓" : i + 1}</div>
-                    {label}
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ flex: 1 }} />
-          </>
-        ) : (
-          <div style={{ flex: 1 }} />
-        )}
+        {(["Upload", "Mask", "Run", "Results"] as const).map((label, i) => {
+          const steps = appMode === "single" ? stepDone : batchStepDone;
+          const done = steps[i];
+          const active = !done && (i === 0 || steps[i - 1]);
+          return (
+            <div key={label} style={{ display: "contents" }}>
+              {i > 0 && <div className="step-connector" />}
+              <div className={`step-item${done ? " done" : active ? " active" : ""}`}>
+                <div className="step-num">{done ? "✓" : i + 1}</div>
+                {label}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ flex: 1 }} />
         {/* Mode switcher tabs (always visible at right) */}
         <div className="app-mode-tabs">
           <button
@@ -2218,6 +2239,36 @@ export default function HomePage() {
               </div>
             </details>
 
+            {/* ── Ground Truth upload (single mode only) ── */}
+            {appMode === "single" && (
+              <div className="card">
+                <div className="card-header">Ground Truth</div>
+                <div className="card-body">
+                  <p className="hint" style={{ marginBottom: 8 }}>
+                    Upload a YOLO-format <code>.txt</code> file to enable per-frame precision / recall metrics.
+                  </p>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <label htmlFor="gt-upload-sidebar" className="btn btn-outline btn-sm" style={{ cursor: "pointer", flexShrink: 0 }}>
+                      {gtFile ? "Change GT" : "Upload GT file"}
+                    </label>
+                    <input id="gt-upload-sidebar" type="file" accept=".txt" style={{ display: "none" }}
+                      onChange={(e) => setGtFile(e.target.files?.[0] ?? null)} />
+                    {gtFile ? (
+                      <>
+                        <span className="hint" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {gtFile.name}
+                        </span>
+                        <button className="btn btn-outline btn-sm" style={{ flexShrink: 0, color: "var(--red)" }}
+                          onClick={() => setGtFile(null)}>✕</button>
+                      </>
+                    ) : (
+                      <span className="hint" style={{ flex: 1 }}>No file selected</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ── Batch panel (shown when in batch mode) ── */}
             {appMode === "batch" && (
               <BatchPanel
@@ -2241,6 +2292,7 @@ export default function HomePage() {
                   return maskOut?.url ?? null;
                 })}
                 onMaskLightbox={(url, caption) => { setLightboxUrl(url); setLightboxCaption(caption); }}
+                onGtFilesAdd={handleBatchGtFilesAdd}
               />
             )}
           </div>
