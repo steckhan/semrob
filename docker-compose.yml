@@ -15,7 +15,7 @@
 
 services:
   nextjs:
-    image: krutarth29/semprob:ecml-inpaint
+    image: krutarth29/semprob:ecml-inpaint-update-01
     build:
       context: .
       dockerfile: Dockerfile.nextjs
@@ -30,10 +30,13 @@ services:
       - COMFYUI_INPUT_DIR_WINDOWS=/comfyui_input
       - COMFYUI_OUTPUT_DIR_WINDOWS=/comfyui_output
       - GT_DIR=/gt_data
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - HOSTNAME=0.0.0.0
     volumes:
       - yolo_output:/tmp/yolo_output
       - comfyui_input:/comfyui_input
       - comfyui_output:/comfyui_output
+      - app_data:/app/data
       - ${GT_DATA_HOST_PATH:-./IPA_repo/obj_Test_data}:/gt_data:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
@@ -56,10 +59,10 @@ services:
       - YOLO_MODEL_PATH=/models/best.pt
 
   comfyui:
-    image: krutarth29/semprob:ecml-comfyui
+    image: krutarth29/semprob:ecml-comfyui-update-01
     build:
-      context: ${COMFYUI_HOST_PATH:-C:/Users/KIAdmin/ComfyUI}
-      dockerfile: Dockerfile.comfyui
+      context: ${COMFYUI_HOST_PATH:-C:/Users/KIAdmin/ComfyUI}/models
+      dockerfile: ${PWD}/Dockerfile.comfyui-update
     ports:
       - "8188:8188"
     volumes:
@@ -90,3 +93,4 @@ volumes:
   yolo_output:
   comfyui_input:
   comfyui_output:
+  app_data:
