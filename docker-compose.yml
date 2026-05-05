@@ -15,7 +15,7 @@
 
 services:
   nextjs:
-    image: krutarth29/semprob:ecml-inpaint-update-01
+    image: krutarth29/semprob:ecml-inpaint-update-02
     build:
       context: .
       dockerfile: Dockerfile.nextjs
@@ -32,6 +32,7 @@ services:
       - GT_DIR=/gt_data
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - HOSTNAME=0.0.0.0
+      - TZ=Europe/Berlin
     volumes:
       - yolo_output:/tmp/yolo_output
       - comfyui_input:/comfyui_input
