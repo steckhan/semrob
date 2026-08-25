@@ -1,5 +1,6 @@
 # Python
 IPA_repo/.venv/
+.venv-yolo/
 __pycache__/
 *.pyc
 
@@ -11,6 +12,7 @@ inpaintntest/.next/
 
 # Large binary / generated files
 IPA_repo/scripts/slideshow.mp4
+model/
 
 # Environment
 .env

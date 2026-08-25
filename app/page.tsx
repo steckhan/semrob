@@ -144,6 +144,7 @@ const OPENAI_MODEL_KEY = "openaiModel";
 const FLUX_MODEL_KEY = "fluxModel";
 const ODD_DOMAIN_KEY = "oddDomain";
 const ODD_CATALOG_CACHE_KEY = "oddCatalogCache";
+const APP_TITLE = "SemProbe – Semantic Robustness Probing via Inpainting";
 const DEFAULT_COMFYUI_BASE_URL = "http://localhost:8188";
 const CHUNK_SIZE = 20; // images per upload chunk
 
@@ -284,6 +285,18 @@ function computeVariantMetrics(result: YoloImageResult) {
   const meanIoU   = tp > 0 ? tpMatches.reduce((s, m) => s + m.iou, 0) / tp : 0;
   const meanConf  = boxes.length > 0 ? boxes.reduce((s, b) => s + b.confidence, 0) / boxes.length : 0;
   return { tp, fp, fn, precision, recall, f1, fnr, meanIoU, meanConf };
+}
+
+function formatCount(value: number): string {
+  return Math.round(value).toLocaleString();
+}
+
+function formatAvgCount(value: number): string {
+  return value.toFixed(1);
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }
 
 function JobResultSection({
@@ -436,17 +449,22 @@ function JobResultSection({
               const outputCount = Object.keys(yr.outputs ?? {}).length;
               const isSweep = (job.params?.promptList?.length ?? 0) > 1;
               const globalLabel = isSweep
-                ? `Avg across ${outputCount} variant${outputCount !== 1 ? "s" : ""} vs GT`
+                ? `Diagnostic mean across ${outputCount} variant${outputCount !== 1 ? "s" : ""}`
                 : "Inpainted vs GT";
               return (
                 <>
                   <div style={{ marginBottom: 8, padding: "6px 8px", background: "var(--surface2)", borderRadius: 4 }}>
                     <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--green)", marginBottom: 4 }}>{globalLabel}</div>
+                    {isSweep && (
+                      <p className="hint" style={{ margin: "0 0 4px", fontSize: "0.62rem" }}>
+                        For sweeps, use the Prompt Sweep table as the main result. This block is a quick per-job diagnostic.
+                      </p>
+                    )}
                     {(yr.inpaintedFrameTp !== undefined || yr.inpaintedFrameFp !== undefined || yr.inpaintedFrameFn !== undefined) && (
                       <div style={{ display: "flex", gap: 8, fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 4 }}>
-                        {yr.inpaintedFrameTp !== undefined && <span>TP <strong style={{ color: "var(--green)" }}>{Math.round(yr.inpaintedFrameTp)}</strong></span>}
-                        {yr.inpaintedFrameFp !== undefined && <span>FP <strong style={{ color: "#f97316" }}>{Math.round(yr.inpaintedFrameFp)}</strong></span>}
-                        {yr.inpaintedFrameFn !== undefined && <span>FN <strong style={{ color: "var(--red)" }}>{Math.round(yr.inpaintedFrameFn)}</strong></span>}
+                        {yr.inpaintedFrameTp !== undefined && <span>Avg TP <strong style={{ color: "var(--green)" }}>{formatAvgCount(yr.inpaintedFrameTp)}</strong></span>}
+                        {yr.inpaintedFrameFp !== undefined && <span>Avg FP <strong style={{ color: "#f97316" }}>{formatAvgCount(yr.inpaintedFrameFp)}</strong></span>}
+                        {yr.inpaintedFrameFn !== undefined && <span>Avg FN <strong style={{ color: "var(--red)" }}>{formatAvgCount(yr.inpaintedFrameFn)}</strong></span>}
                       </div>
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.80rem", color: "var(--text-dim)" }}>
@@ -511,9 +529,9 @@ function JobResultSection({
                       <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-dim)", marginBottom: 4 }}>Original vs GT</div>
                       {(yr.frameTp !== undefined || yr.frameFp !== undefined || yr.frameFn !== undefined) && (
                         <div style={{ display: "flex", gap: 8, fontSize: "0.72rem", color: "var(--text-dim)", marginBottom: 4 }}>
-                          {yr.frameTp !== undefined && <span>TP <strong style={{ color: "var(--green)" }}>{yr.frameTp}</strong></span>}
-                          {yr.frameFp !== undefined && <span>FP <strong style={{ color: "#f97316" }}>{yr.frameFp}</strong></span>}
-                          {yr.frameFn !== undefined && <span>FN <strong style={{ color: "var(--red)" }}>{yr.frameFn}</strong></span>}
+                          {yr.frameTp !== undefined && <span>TP <strong style={{ color: "var(--green)" }}>{formatCount(yr.frameTp)}</strong></span>}
+                          {yr.frameFp !== undefined && <span>FP <strong style={{ color: "#f97316" }}>{formatCount(yr.frameFp)}</strong></span>}
+                          {yr.frameFn !== undefined && <span>FN <strong style={{ color: "var(--red)" }}>{formatCount(yr.frameFn)}</strong></span>}
                         </div>
                       )}
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: "0.80rem", color: "var(--text-dim)" }}>
@@ -609,9 +627,9 @@ function JobResultSection({
                       {vm && (
                         <div style={{ padding: "5px 7px", background: "var(--surface2)", borderRadius: 4, marginBottom: 6 }}>
                           <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", color: "var(--text-dim)", marginBottom: 3 }}>
-                            <span>TP <strong style={{ color: "var(--green)" }}>{vm.tp}</strong></span>
-                            <span>FP <strong style={{ color: "#f97316" }}>{vm.fp}</strong></span>
-                            <span>FN <strong style={{ color: "var(--red)" }}>{vm.fn}</strong></span>
+                            <span>TP <strong style={{ color: "var(--green)" }}>{formatCount(vm.tp)}</strong></span>
+                            <span>FP <strong style={{ color: "#f97316" }}>{formatCount(vm.fp)}</strong></span>
+                            <span>FN <strong style={{ color: "var(--red)" }}>{formatCount(vm.fn)}</strong></span>
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: "0.75rem", color: "var(--text-dim)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -687,11 +705,15 @@ function JobResultSection({
 type PromptTableRow = {
   prompt: string;
   count: number;
-  avgDetections: number;
   hasGT: boolean;
-  avgPrecision?: number;
-  avgRecall?: number;
-  avgFnr?: number;
+  totalGt?: number;
+  totalTp?: number;
+  totalFp?: number;
+  totalFn?: number;
+  microPrecision?: number;
+  missedRatio?: number;
+  microF1?: number;
+  worstMissedRatio?: number;
   avgMeanIoU?: number;
   avgMeanConf: number;
 };
@@ -751,14 +773,32 @@ function buildPromptTable(batchAllJobs: Record<number, JobRecord>): PromptTableR
 
   return Object.entries(buckets).map(([prompt, { detCounts, confSums, vms, hasGT }]) => {
     const validVms = vms.filter((v): v is NonNullable<typeof v> => v !== null);
+    const totalTp = validVms.reduce((sum, v) => sum + v.tp, 0);
+    const totalFp = validVms.reduce((sum, v) => sum + v.fp, 0);
+    const totalFn = validVms.reduce((sum, v) => sum + v.fn, 0);
+    const totalGt = totalTp + totalFn;
+    const precisionDenom = totalTp + totalFp;
+    const recallDenom = totalGt;
+    const f1Denom = 2 * totalTp + totalFp + totalFn;
+
     return {
       prompt,
       count: detCounts.length,
-      avgDetections: mean(detCounts),
       hasGT,
-      avgPrecision: hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.precision)) : undefined,
-      avgRecall:    hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.recall))    : undefined,
-      avgFnr:       hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.fnr))       : undefined,
+      totalGt: hasGT && validVms.length > 0 ? totalGt : undefined,
+      totalTp: hasGT && validVms.length > 0 ? totalTp : undefined,
+      totalFp: hasGT && validVms.length > 0 ? totalFp : undefined,
+      totalFn: hasGT && validVms.length > 0 ? totalFn : undefined,
+      microPrecision: hasGT && validVms.length > 0
+        ? (precisionDenom > 0 ? totalTp / precisionDenom : 0)
+        : undefined,
+      missedRatio: hasGT && validVms.length > 0
+        ? (recallDenom > 0 ? totalFn / recallDenom : 0)
+        : undefined,
+      microF1: hasGT && validVms.length > 0
+        ? (f1Denom > 0 ? (2 * totalTp) / f1Denom : 0)
+        : undefined,
+      worstMissedRatio: hasGT && validVms.length > 0 ? Math.max(...validVms.map((v) => v.fnr)) : undefined,
       avgMeanIoU:   hasGT && validVms.length > 0 ? mean(validVms.map((v) => v.meanIoU))  : undefined,
       avgMeanConf:  mean(confSums),
     };
@@ -869,14 +909,13 @@ function BatchResultCard({
                         {(() => {
                           const vm = computeVariantMetrics(result);
                           if (!vm) return null;
-                          const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
-                          const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
-                          const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
                           return (
-                            <div style={{ display: "flex", gap: 8, fontSize: "0.6rem", color: "var(--text-dim)", marginTop: 1, paddingLeft: 2 }}>
-                              <span>P <strong style={{ color: precColor(vm.precision) }}>{vm.precision.toFixed(2)}</strong></span>
-                              <span>R <strong style={{ color: recColor(vm.recall) }}>{vm.recall.toFixed(2)}</strong></span>
-                              <span>FNR <strong style={{ color: fnrColor(vm.fnr) }}>{vm.fnr.toFixed(2)}</strong></span>
+                            <div style={{ display: "flex", gap: 7, fontSize: "0.6rem", color: "var(--text-dim)", marginTop: 1, paddingLeft: 2, flexWrap: "wrap" }}>
+                              <span>TP <strong style={{ color: "var(--green)" }}>{formatCount(vm.tp)}</strong></span>
+                              {vm.fp > 0 && (
+                                <span>FP <strong style={{ color: "#f97316" }}>{formatCount(vm.fp)}</strong></span>
+                              )}
+                              <span>FN <strong style={{ color: "var(--red)" }}>{formatCount(vm.fn)}</strong></span>
                             </div>
                           );
                         })()}
@@ -928,9 +967,9 @@ function BatchResultCard({
                     {vm && (
                       <div style={{ padding: "4px 6px", background: "var(--surface2)", borderRadius: 4, marginBottom: 4 }}>
                         <div style={{ display: "flex", gap: 8, fontSize: "0.62rem", color: "var(--text-dim)", marginBottom: 2 }}>
-                          <span>TP <strong style={{ color: "var(--green)" }}>{vm.tp}</strong></span>
-                          <span>FP <strong style={{ color: "#f97316" }}>{vm.fp}</strong></span>
-                          <span>FN <strong style={{ color: "var(--red)" }}>{vm.fn}</strong></span>
+                          <span>TP <strong style={{ color: "var(--green)" }}>{formatCount(vm.tp)}</strong></span>
+                          <span>FP <strong style={{ color: "#f97316" }}>{formatCount(vm.fp)}</strong></span>
+                          <span>FN <strong style={{ color: "var(--red)" }}>{formatCount(vm.fn)}</strong></span>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 1, fontSize: "0.68rem", color: "var(--text-dim)" }}>
                           {[
@@ -1056,6 +1095,10 @@ export default function HomePage() {
   }, [lightboxUrl]);
 
   // ── Load persisted settings ───────────────────────────────────────────────
+  useEffect(() => {
+    document.title = APP_TITLE;
+  }, []);
+
   useEffect(() => {
     const stored = window.localStorage.getItem(COMFYUI_LOCAL_STORAGE_KEY);
     if (stored?.trim()) setComfyBaseUrl(stored.trim());
@@ -1767,10 +1810,7 @@ export default function HomePage() {
           <div className="topbar-icon">SP</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             <span style={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
-              SemProbe
-              <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6, fontSize: "0.85rem" }}>
-                Semantic Robustness Probing via Inpainting
-              </span>
+              {APP_TITLE}
             </span>
             <span style={{ fontWeight: 400, color: "var(--text-dim)", fontSize: "0.65rem", letterSpacing: "0.01em" }}>
               Interactive Tool for Data Augmentation for Safety-Critical Object Detection
@@ -2481,9 +2521,9 @@ export default function HomePage() {
                         <span className="metric-label" style={{ fontSize: "0.62rem" }}>Inpainted vs GT</span>
                       </div>
                       <div style={{ display: "flex", gap: 10, marginBottom: 4, paddingLeft: 2 }}>
-                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>TP <strong style={{ color: "#22c55e" }}>{accMetrics.inpainted.totalTP}</strong></span>
-                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FP <strong style={{ color: "#f97316" }}>{accMetrics.inpainted.totalFP}</strong></span>
-                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FN <strong style={{ color: "#ef4444" }}>{accMetrics.inpainted.totalFN}</strong></span>
+                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>TP <strong style={{ color: "#22c55e" }}>{formatCount(accMetrics.inpainted.totalTP)}</strong></span>
+                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FP <strong style={{ color: "#f97316" }}>{formatCount(accMetrics.inpainted.totalFP)}</strong></span>
+                        <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FN <strong style={{ color: "#ef4444" }}>{formatCount(accMetrics.inpainted.totalFN)}</strong></span>
                       </div>
                       <div className="metric-row">
                         <span className="metric-label">F1 Score</span>
@@ -2534,9 +2574,9 @@ export default function HomePage() {
                             <span className="metric-label" style={{ fontSize: "0.62rem", opacity: 0.7 }}>Original vs GT</span>
                           </div>
                           <div style={{ display: "flex", gap: 10, marginBottom: 4, paddingLeft: 2, opacity: 0.7 }}>
-                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>TP <strong style={{ color: "#22c55e" }}>{accMetrics.original.totalTP}</strong></span>
-                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FP <strong style={{ color: "#f97316" }}>{accMetrics.original.totalFP}</strong></span>
-                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FN <strong style={{ color: "#ef4444" }}>{accMetrics.original.totalFN}</strong></span>
+                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>TP <strong style={{ color: "#22c55e" }}>{formatCount(accMetrics.original.totalTP)}</strong></span>
+                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FP <strong style={{ color: "#f97316" }}>{formatCount(accMetrics.original.totalFP)}</strong></span>
+                            <span style={{ fontSize: "0.62rem", color: "var(--text-dim)" }}>FN <strong style={{ color: "#ef4444" }}>{formatCount(accMetrics.original.totalFN)}</strong></span>
                           </div>
                           <div className="metric-row" style={{ opacity: 0.7 }}>
                             <span className="metric-label">F1 Score</span>
@@ -2597,15 +2637,13 @@ export default function HomePage() {
                   if (rows.length === 0) return null;
                   const hasGT = rows.some((r) => r.hasGT);
                   const precColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
-                  const recColor  = (v: number) => v >= 0.85 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
                   const fnrColor  = (v: number) => v <= 0.2 ? "var(--green)" : v <= 0.4 ? "var(--orange)" : "var(--red)";
                   const iouColor  = (v: number) => v >= 0.75 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
                   const confColor = (v: number) => v >= 0.8 ? "var(--green)" : v >= 0.6 ? "var(--orange)" : "var(--red)";
-                  const detColor  = (v: number) => v >= 1 ? "var(--green)" : "var(--red)";
                   return (
                     <div className="card" style={{ marginBottom: 8 }}>
                       <div className="card-header" style={{ justifyContent: "space-between" }}>
-                        <span>Prompt Sweep — Avg. Metrics per Variant</span>
+                        <span>Prompt Sweep — Micro Metrics per Semantic Variant</span>
                         <button
                           className="btn btn-outline btn-sm"
                           style={{ fontSize: "0.6rem", padding: "2px 8px" }}
@@ -2615,16 +2653,23 @@ export default function HomePage() {
                         </button>
                       </div>
                       <div className="card-body" style={{ padding: "6px 0 2px" }}>
+                        <p className="hint" style={{ padding: "0 8px 6px", margin: 0, fontSize: "0.62rem" }}>
+                          GT/TP/FP/FN are totals per prompt. Missed % is FN/GT and the primary robustness indicator; Worst Missed shows the weakest single-frame outcome for that prompt.
+                        </p>
                         <div style={{ overflowX: "auto" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.7rem" }}>
                             <thead>
                               <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "0.6rem" }}>
                                 <th style={{ textAlign: "left",  padding: "3px 8px", fontWeight: 700 }}>Prompt</th>
                                 <th style={{ textAlign: "center", padding: "3px 6px", fontWeight: 700 }}>N</th>
-                                <th style={{ textAlign: "right",  padding: "3px 6px", fontWeight: 700 }}>Det.</th>
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>GT</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>Missed %</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>FN</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>TP</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>FP</th>}
                                 {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>Prec</th>}
-                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>Rec</th>}
-                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>FNR</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>F1</th>}
+                                {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>Worst Missed</th>}
                                 {hasGT && <th style={{ textAlign: "right", padding: "3px 6px", fontWeight: 700 }}>mIoU</th>}
                                 <th style={{ textAlign: "right", padding: "3px 8px", fontWeight: 700 }}>mConf</th>
                               </tr>
@@ -2639,27 +2684,59 @@ export default function HomePage() {
                                     {row.prompt}
                                   </td>
                                   <td style={{ textAlign: "center", padding: "4px 6px", color: "var(--text-dim)" }}>{row.count}</td>
-                                  <td style={{ textAlign: "right", padding: "4px 6px" }}>
-                                    <strong style={{ color: detColor(row.avgDetections) }}>{row.avgDetections.toFixed(1)}</strong>
-                                  </td>
                                   {hasGT && (
                                     <td style={{ textAlign: "right", padding: "4px 6px" }}>
-                                      {row.avgPrecision !== undefined
-                                        ? <strong style={{ color: precColor(row.avgPrecision) }}>{row.avgPrecision.toFixed(2)}</strong>
+                                      {row.totalGt !== undefined
+                                        ? <strong>{formatCount(row.totalGt)}</strong>
                                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                     </td>
                                   )}
                                   {hasGT && (
                                     <td style={{ textAlign: "right", padding: "4px 6px" }}>
-                                      {row.avgRecall !== undefined
-                                        ? <strong style={{ color: recColor(row.avgRecall) }}>{row.avgRecall.toFixed(2)}</strong>
+                                      {row.missedRatio !== undefined
+                                        ? <strong style={{ color: fnrColor(row.missedRatio) }}>{formatPercent(row.missedRatio)}</strong>
                                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                     </td>
                                   )}
                                   {hasGT && (
                                     <td style={{ textAlign: "right", padding: "4px 6px" }}>
-                                      {row.avgFnr !== undefined
-                                        ? <strong style={{ color: fnrColor(row.avgFnr) }}>{row.avgFnr.toFixed(2)}</strong>
+                                      {row.totalFn !== undefined
+                                        ? <strong style={{ color: row.missedRatio !== undefined ? fnrColor(row.missedRatio) : "var(--red)" }}>{formatCount(row.totalFn)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.totalTp !== undefined
+                                        ? <strong style={{ color: row.missedRatio !== undefined ? fnrColor(row.missedRatio) : undefined }}>{formatCount(row.totalTp)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.totalFp !== undefined
+                                        ? <strong style={{ color: row.microPrecision !== undefined ? precColor(row.microPrecision) : "#f97316" }}>{formatCount(row.totalFp)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.microPrecision !== undefined
+                                        ? <strong style={{ color: precColor(row.microPrecision) }}>{row.microPrecision.toFixed(2)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.microF1 !== undefined
+                                        ? <strong style={{ color: precColor(row.microF1) }}>{row.microF1.toFixed(2)}</strong>
+                                        : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                    </td>
+                                  )}
+                                  {hasGT && (
+                                    <td style={{ textAlign: "right", padding: "4px 6px" }}>
+                                      {row.worstMissedRatio !== undefined
+                                        ? <strong style={{ color: fnrColor(row.worstMissedRatio) }}>{formatPercent(row.worstMissedRatio)}</strong>
                                         : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                     </td>
                                   )}
