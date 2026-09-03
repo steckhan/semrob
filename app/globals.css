@@ -21,6 +21,21 @@
   font-family: "Inter", -apple-system, system-ui, sans-serif;
 }
 
+:root[data-theme="light"] {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface2: #f1f3f8;
+  --surface3: #e7eaf2;
+  --border: #d7dce8;
+  --border-light: #c6ccd9;
+  --text: #151821;
+  --text-dim: #596174;
+  --text-muted: #7a8294;
+  --accent: #6d28d9;
+  --accent-light: #7c3aed;
+  --accent-dim: #5b21b6;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -85,6 +100,24 @@ body {
   gap: 10px;
   font-size: 0.85rem;
   color: var(--text-dim);
+}
+
+.theme-toggle {
+  border: 1px solid var(--border-light);
+  background: var(--surface2);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.theme-toggle:hover {
+  background: var(--surface3);
+  border-color: var(--accent-light);
 }
 
 .badge {

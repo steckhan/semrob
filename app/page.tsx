@@ -144,6 +144,7 @@ const OPENAI_MODEL_KEY = "openaiModel";
 const FLUX_MODEL_KEY = "fluxModel";
 const ODD_DOMAIN_KEY = "oddDomain";
 const ODD_CATALOG_CACHE_KEY = "oddCatalogCache";
+const THEME_KEY = "theme";
 const APP_TITLE = "SemProbe – Semantic Robustness Probing via Inpainting";
 const DEFAULT_COMFYUI_BASE_URL = "http://localhost:8188";
 const CHUNK_SIZE = 20; // images per upload chunk
@@ -1007,6 +1008,8 @@ function BatchResultCard({
 }
 
 export default function HomePage() {
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
   // ── App mode ──────────────────────────────────────────────────────────────
   const [appMode, setAppMode] = useState<"single" | "batch">("single");
 
@@ -1098,6 +1101,24 @@ export default function HomePage() {
   useEffect(() => {
     document.title = APP_TITLE;
   }, []);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem(THEME_KEY);
+    if (storedTheme === "dark" || storedTheme === "light") {
+      setTheme(storedTheme);
+      document.documentElement.dataset.theme = storedTheme;
+      return;
+    }
+
+    document.documentElement.dataset.theme = "dark";
+  }, []);
+
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    window.localStorage.setItem(THEME_KEY, nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+  }
 
   useEffect(() => {
     const stored = window.localStorage.getItem(COMFYUI_LOCAL_STORAGE_KEY);
@@ -1818,6 +1839,9 @@ export default function HomePage() {
           </div>
         </div>
         <div className="topbar-meta">
+          <button className="theme-toggle" type="button" onClick={toggleTheme}>
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
           <span className={`badge ${inpaintMode === "local" ? "badge-local" : "badge-api"}`}>
             {inpaintMode === "local" ? "Local · ComfyUI" : `Cloud · ${openaiModel}`}
           </span>
